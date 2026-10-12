@@ -1,0 +1,427 @@
+/**
+ * GenAI Genesis landing page — scroll orchestration.
+ *
+ *  Lenis smooth scroll ─► update() per frame while scrolling
+ *     ├─ story chapters  → Toronto city: camera pose, city turning, buildings rising
+ *     ├─ borders section → subway line slides sideways while pinned
+ *     └─ finale          → subway train: windows reveal the team, then the CTA
+ *  The city renders on demand (scroll / hover). The train runs a frame loop only
+ *  while the finale is on screen, so its wind keeps blowing when you stop scrolling.
+ *
+ *  Fallbacks: prefers-reduced-motion → native scroll, no reveals, still frames.
+ *             No WebGL → canvas hidden, page fully readable.
+ *             Low-end hint (≤4 cores or ≤4 GB) → pixel ratio 1, no antialias.
+ */
+import * as THREE from "three";
+import Lenis from "lenis";
+import { createCity, PASTEL } from "./city.js";
+import { createStreetcar } from "./streetcar.js";
+import { createBackdrop } from "./backdrop.js";
+import { LOGOS } from "./logos.js";
+
+const reduced = document.documentElement.classList.contains("reduced-motion");
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+
+/* ------------------------------------------------------------------ content */
+// Placeholder stations — replace with the confirmed attendee country list.
+const COUNTRIES = [
+  ["CAN", "Canada"], ["USA", "United States"], ["MEX", "Mexico"], ["BRA", "Brazil"], ["COL", "Colombia"],
+  ["PER", "Peru"], ["ARG", "Argentina"], ["GBR", "United Kingdom"], ["IRL", "Ireland"], ["FRA", "France"],
+  ["DEU", "Germany"], ["NLD", "Netherlands"], ["CHE", "Switzerland"], ["ITA", "Italy"], ["ESP", "Spain"],
+  ["POL", "Poland"], ["UKR", "Ukraine"], ["TUR", "Türkiye"], ["EGY", "Egypt"], ["NGA", "Nigeria"],
+  ["GHA", "Ghana"], ["KEN", "Kenya"], ["ZAF", "South Africa"], ["ARE", "UAE"], ["SAU", "Saudi Arabia"],
+  ["IRN", "Iran"], ["PAK", "Pakistan"], ["IND", "India"], ["BGD", "Bangladesh"], ["LKA", "Sri Lanka"],
+  ["SGP", "Singapore"], ["VNM", "Vietnam"], ["PHL", "Philippines"], ["CHN", "China"], ["KOR", "South Korea"],
+  ["JPN", "Japan"], ["AUS", "Australia"],
+];
+const line = $("#line");
+line.innerHTML = COUNTRIES.map(([code, name], i) => {
+  const terminal = i === 0 || i === COUNTRIES.length - 1;
+  return `<li class="stop${terminal ? " terminal" : ""}"><span class="code">${String(i + 1).padStart(2, "0")} · ${code}</span><span class="dot"></span><span class="name">${name}</span></li>`;
+}).join("");
+
+// Team — placeholder names until the 2027 roster is final. Add `photo: "url"` to show a real picture.
+const TEAM = [
+  { name: "Name TBD", role: "Co-Chair" }, { name: "Name TBD", role: "Co-Chair" },
+  { name: "Name TBD", role: "VC Design" }, { name: "Name TBD", role: "VC Partnerships" },
+  { name: "Name TBD", role: "VC Logistics" }, { name: "Name TBD", role: "VC Marketing" },
+  { name: "Name TBD", role: "VC Technology" }, { name: "Name TBD", role: "VC Finance" },
+];
+$("#crew-total").textContent = TEAM.length;
+$("#crew-list").innerHTML = TEAM.map((m) => `<li>${m.name}, ${m.role}</li>`).join("");
+const labelEls = TEAM.map((m) => {
+  const el = document.createElement("div");
+  el.className = "crew-label";
+  el.innerHTML = `<b>${m.name}</b><span>${m.role}</span>`;
+  $("#crew-labels").appendChild(el);
+  return el;
+});
+
+// Sponsor marquee (white logos). Wordmarks in type are stand-ins until official SVGs are added.
+const SPONSORS = [
+  { id: "google", svg: LOGOS.google, name: "Google" },
+  { id: "cohere", svg: LOGOS.cohere, name: "Cohere" },
+  { id: "pwc", text: "pwc", name: "PwC" },
+  { id: "un", svg: LOGOS.un, text: "United Nations", name: "United Nations" },
+  { id: "cgi", text: "CGI", name: "CGI" },
+  { id: "devpost", svg: LOGOS.devpost, text: "Devpost", name: "Devpost" },
+  { id: "odc", text: "One Degree Cooler", name: "One Degree Cooler" },
+  { id: "hc", text: "Hack Canada", name: "Hack Canada" },
+  { id: "wtm", text: "Women Techmakers", name: "Women Techmakers" },
+];
+const logoHTML = (s, hidden) => `<li class="logo l-${s.id}"${hidden ? ' aria-hidden="true"' : ` aria-label="${s.name}"`}>${s.svg || ""}${s.text ? `<span class="wordmark${s.svg ? " light" : ""}">${s.text}</span>` : ""}</li>`;
+$("#marquee").innerHTML = SPONSORS.map((s) => logoHTML(s, false)).join("") + SPONSORS.map((s) => logoHTML(s, true)).join("");
+
+/* --------------------------------------------------------------- nav + UI */
+const nav = $(".nav");
+$("#nav-toggle").addEventListener("click", () => {
+  const open = nav.classList.toggle("open");
+  $("#nav-toggle").setAttribute("aria-expanded", String(open));
+});
+
+// Tabs (roving tabindex)
+const tabs = $$(".tab");
+tabs.forEach((tab) => {
+  tab.addEventListener("click", () => select(tab));
+  tab.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const next = tabs[(tabs.indexOf(tab) + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+    select(next); next.focus();
+  });
+});
+const pill = $(".tab-pill");
+function movePill(tab) {
+  pill.style.setProperty("--pill-x", tab.offsetLeft + "px");
+  pill.style.setProperty("--pill-w", tab.offsetWidth + "px");
+}
+// Panel swap: the old cards fade out, then the new ones fade up one after another.
+let swapping = null;
+function select(tab) {
+  const next = $("#" + tab.getAttribute("aria-controls"));
+  const prev = tabs.map((t) => $("#" + t.getAttribute("aria-controls"))).find((p) => !p.hidden && p !== next);
+  tabs.forEach((t) => {
+    const on = t === tab;
+    t.setAttribute("aria-selected", String(on));
+    t.tabIndex = on ? 0 : -1;
+  });
+  movePill(tab);
+  if (!prev) return;
+  const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
+  const show = () => {
+    prev.hidden = true; next.hidden = false;
+    if (reduced) return;
+    [...next.children].forEach((card, i) => card.animate(
+      [{ opacity: 0, transform: "translateY(26px)" }, { opacity: 1, transform: "translateY(0)" }],
+      { duration: 620, delay: i * 80, easing: ease, fill: "backwards" }
+    ));
+  };
+  if (swapping) swapping.cancel();
+  if (reduced) { show(); return; }
+  swapping = prev.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: "ease-out", fill: "forwards" });
+  swapping.onfinish = () => { swapping.cancel(); swapping = null; show(); };
+}
+movePill(tabs.find((t) => t.getAttribute("aria-selected") === "true") || tabs[0]);
+addEventListener("resize", () => movePill(tabs.find((t) => t.getAttribute("aria-selected") === "true")));
+document.fonts?.ready.then(() => movePill(tabs.find((t) => t.getAttribute("aria-selected") === "true")));
+
+// "Opens soon" buttons swap their label briefly instead of going nowhere.
+$$("[data-soon]").forEach((btn) => {
+  const label = btn.innerHTML;
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    btn.textContent = btn.dataset.soon;
+    clearTimeout(btn._t);
+    btn._t = setTimeout(() => { btn.innerHTML = label; }, 2200);
+  });
+});
+
+// FAQ: animated open/close (height + fade) instead of the native jump
+// FAQ: animated, and only one answer open at a time
+const faqItems = $$(".faq details");
+const faqEase = "cubic-bezier(0.22, 1, 0.36, 1)", faqDur = reduced ? 0 : 460;
+function faqOpen(d) {
+  const body = d.querySelector(".faq-a");
+  if (d._anim) { d._anim.cancel(); d._anim = null; }
+  d.open = true; d.classList.add("is-open");
+  const h = body.scrollHeight;
+  d._anim = body.animate([{ height: "0px", opacity: 0 }, { height: h + "px", opacity: 1 }], { duration: faqDur, easing: faqEase });
+  d._anim.onfinish = () => { d._anim = null; lenis?.resize?.(); };
+}
+function faqClose(d) {
+  const body = d.querySelector(".faq-a");
+  if (d._anim) { d._anim.cancel(); d._anim = null; }
+  d.classList.remove("is-open");
+  const h = body.offsetHeight;
+  d._anim = body.animate([{ height: h + "px", opacity: 1 }, { height: "0px", opacity: 0 }], { duration: faqDur, easing: faqEase });
+  d._anim.onfinish = () => { d.open = false; d._anim = null; lenis?.resize?.(); };
+}
+faqItems.forEach((d) => {
+  if (d.open) d.classList.add("is-open");
+  d.querySelector("summary").addEventListener("click", (e) => {
+    e.preventDefault();
+    if (d.classList.contains("is-open")) { faqClose(d); return; }
+    faqItems.forEach((o) => { if (o !== d && o.classList.contains("is-open")) faqClose(o); });
+    faqOpen(d);
+  });
+});
+
+/* ------------------------------------------------------------ smooth scroll */
+let lenis = null;
+if (!reduced) {
+  lenis = new Lenis({ lerp: 0.085, smoothWheel: true, autoRaf: true, anchors: false });
+  lenis.on("scroll", () => requestUpdate());
+} else {
+  addEventListener("scroll", () => requestUpdate(), { passive: true });
+}
+$$('a[href^="#"]').forEach((a) => {
+  a.addEventListener("click", (e) => {
+    const id = a.getAttribute("href");
+    if (a.hasAttribute("data-soon")) return;
+    const el = id === "#top" ? document.body : $(id);
+    if (!el) return;
+    e.preventDefault();
+    nav.classList.remove("open");
+    $("#nav-toggle").setAttribute("aria-expanded", "false");
+    if (lenis) lenis.scrollTo(id === "#top" ? 0 : el, { offset: 0, duration: 1.6 });
+    else el.scrollIntoView();
+    history.replaceState(null, "", id);
+  });
+});
+
+// Active nav link: every section maps to a nav item (data-nav); the weight/colour change fades in CSS.
+const navMap = new Map($$(".nav-links a").map((a) => [a.getAttribute("href").slice(1), a]));
+const navCta = $(".nav-cta");
+function setActive(key) {
+  navMap.forEach((l, k) => l.classList.toggle("is-active", k === key));
+  navCta.classList.toggle("is-active", key === "apply");
+}
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((en) => { if (en.isIntersecting) setActive(en.target.dataset.nav); });
+}, { rootMargin: "-48% 0px -48% 0px" });
+$$("[data-nav]").forEach((s) => io.observe(s));
+
+// Tilt on every card: follows the cursor, lifts toward it. Wide elements (FAQ rows,
+// the tab bar) tilt less so their far edges don't swing too far.
+const finePointer = matchMedia("(hover: hover) and (pointer: fine)").matches;
+if (!reduced && finePointer) {
+  $$(".panel, .story-card, .story-quote, .project, .polaroid, .faq details, .tabs").forEach((el) => {
+    el.setAttribute("data-tilt", "");
+    el.addEventListener("pointermove", (e) => {
+      const r = el.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+      const k = Math.min(1, Math.max(0.3, 460 / r.width));
+      el.style.setProperty("--rx", (-py * 12 * k).toFixed(2) + "deg");
+      el.style.setProperty("--ry", (px * 14 * k).toFixed(2) + "deg");
+      el.classList.add("tilting");
+    });
+    el.addEventListener("pointerleave", () => {
+      el.style.setProperty("--rx", "0deg"); el.style.setProperty("--ry", "0deg");
+      el.classList.remove("tilting");
+    });
+  });
+}
+
+// Halo centre leans gently toward the cursor
+const rootStyle = document.documentElement.style;
+let hx = 50, hy = 50;
+addEventListener("pointermove", (e) => {
+  hx = 50 + ((e.clientX / innerWidth) - 0.5) * 22;
+  hy = 50 + ((e.clientY / innerHeight) - 0.5) * 22;
+  rootStyle.setProperty("--hx", hx.toFixed(1) + "%");
+  rootStyle.setProperty("--hy", hy.toFixed(1) + "%");
+}, { passive: true });
+function setHalo(s) {          // s: how much 3D sits behind the text (0..1)
+  rootStyle.setProperty("--halo-blur", (4 + s * 12).toFixed(1) + "px");
+  rootStyle.setProperty("--halo-tint", (0.12 + s * 0.26).toFixed(3));
+}
+
+/* ----------------------------------------------------------------- reveals */
+if (!reduced) {
+  document.documentElement.classList.add("reveal-ready");
+  const rv = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (en.isIntersecting) { en.target.classList.add("in"); countUp(en.target); }
+      else if (en.boundingClientRect.top > 0) en.target.classList.remove("in"); // re-arm when scrolled back up past it
+    });
+  }, { threshold: 0.18, rootMargin: "0px 0px -8% 0px" });
+  $$("[data-reveal]").forEach((el) => rv.observe(el));
+}
+function countUp(el) {
+  const b = el.querySelector("[data-count]");
+  if (!b || b._done) return;
+  b._done = true;
+  const end = +b.dataset.count, t0 = performance.now(), dur = 1300;
+  const tick = (now) => {
+    const t = clamp((now - t0) / dur);
+    const v = Math.round(end * (1 - Math.pow(1 - t, 3)));
+    b.textContent = v.toLocaleString("en-CA") + "+";
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ---------------------------------------------------------------- backdrop */
+const backdrop = createBackdrop({ reduced });
+if (backdrop) $(".bg").after(backdrop.canvas);
+
+/* ------------------------------------------------------------------ WebGL */
+const canvas = $("#stage");
+let renderer = null;
+try {
+  const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: !weak, alpha: true, powerPreference: "low-power" });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, weak ? 1 : 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setClearColor(0x000000, 0);
+} catch (err) {
+  document.documentElement.classList.add("no-webgl");
+}
+
+const modelUrl = new URL("../assets/cn-tower/cn-tower.glb", import.meta.url).href;
+let city = null;
+const subway = renderer ? createStreetcar(TEAM) : null;
+if (renderer) {
+  // the stats list doubles as the source for the 3D number band around the globe
+  const stats = $$(".stat-col .stat").map((li, i, all) => ({
+    value: li.querySelector("b").textContent.trim(), label: li.querySelector("span").textContent.trim(), accent: i === all.length - 1,
+  }));
+  createCity(modelUrl, { stats }).then((c) => {
+    city = c; subway?.addTower(c.towerModel, PASTEL);
+    if (!reduced) document.documentElement.classList.add("stats-ring");   // the band replaces the flat list
+    resize(); requestUpdate();
+  })
+    .catch((e) => { console.warn("City failed to load", e); });
+}
+
+function resize() {
+  if (!renderer) return;
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  for (const s of [city, subway]) if (s) { s.camera.aspect = w / h; s.camera.updateProjectionMatrix(); }
+  measure();
+  requestUpdate();
+}
+
+/* --------------------------------------------------------------- scrolling */
+const chapters = $$("[data-chapter]");
+const borders = $("#borders");
+const finale = $("#apply");
+const statsEl = $("#stats");
+let anchors = [];
+let lineTravel = 0;
+
+function docTop(el) { return el.getBoundingClientRect().top + scrollY; }
+function measure() {
+  const vh = innerHeight;
+  anchors = chapters.map((el) => Math.max(0, docTop(el) + (el.offsetHeight - vh) / 2));
+  const last = chapters[chapters.length - 1];
+  anchors.push(docTop(last) + last.offsetHeight);                      // "exit" pose
+  lineTravel = Math.max(0, line.scrollWidth - $("#line-viewport").clientWidth);
+}
+
+function chapterIndex(y) {
+  if (y <= anchors[0]) return 0;
+  for (let i = 0; i < anchors.length - 1; i++) {
+    if (y < anchors[i + 1]) return i + (y - anchors[i]) / (anchors[i + 1] - anchors[i]);
+  }
+  return anchors.length - 1;
+}
+
+let queued = false, looping = false;
+function requestUpdate() {
+  if (queued || looping) return;   // the frame loop already renders every frame
+  queued = true;
+  requestAnimationFrame(() => { queued = false; update(); });
+}
+
+// Pointer → city hover (lift a building) + slight camera parallax
+let pointerNdc = null, cityOnStage = false;
+addEventListener("pointermove", (e) => {
+  pointerNdc = [(e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1];
+  if (cityOnStage && city && !reduced) {
+    document.body.style.cursor = city.hover(...pointerNdc) ? "pointer" : "";
+    startLoop();
+  }
+}, { passive: true });
+
+// Frame loop (train wind, hover easing). Stops itself when nothing animates.
+let last = 0;
+function startLoop() {
+  if (looping || !renderer) return;
+  looping = true; last = performance.now();
+  requestAnimationFrame(frame);
+}
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const keep = update(dt);
+  if (keep) requestAnimationFrame(frame); else looping = false;
+}
+
+let finaleState = null, fadedAt = null;
+function update(dt = 0) {
+  const y = scrollY, vh = innerHeight;
+
+  // Subway line: slide sideways while the section is pinned.
+  if (!reduced) {
+    const r = borders.getBoundingClientRect();
+    const p = clamp(-r.top / (r.height - vh));
+    line.style.transform = `translate3d(${(-p * lineTravel).toFixed(1)}px,0,0)`;
+  }
+
+  // Finale copy state (also without WebGL)
+  const fr = finale.getBoundingClientRect();
+  const q = reduced ? 1 : clamp(-fr.top / (fr.height - vh));
+  const cta = q > 0.8;
+  if (cta !== finaleState) { finale.classList.toggle("is-cta", cta); finaleState = cta; }
+
+  if (!renderer) return false;
+
+  // Finale on stage → the train (continuous loop for the wind)
+  if (fr.top < vh * 0.9 && fr.bottom > 0 && subway) {
+    cityOnStage = false; document.body.style.cursor = "";
+    subway.setProgress(q);
+    subway.tick(dt || 1 / 60, reduced);
+    const op = clamp(1 - fr.top / (vh * 0.9));
+    canvas.style.opacity = String(op);
+    setHalo(op * (0.75 + 0.25 * Math.sin(performance.now() / 900)));   // breathes slightly with the wind
+    renderer.render(subway.scene, subway.camera);
+    $("#crew-n").textContent = subway.revealed;
+    const L = subway.labels(innerWidth, innerHeight);
+    L.forEach((l, i) => {
+      const el = labelEls[i]; if (!el) return;
+      el.classList.toggle("on", l.visible && !cta);
+      if (l.visible) el.style.transform = `translate(${l.x.toFixed(1)}px, ${l.y.toFixed(1)}px) translate(-50%, 0)`;
+    });
+    if (!reduced) { startLoop(); return true; }
+    return false;
+  }
+  labelEls.forEach((el) => el.classList.remove("on"));
+
+  if (!city) return false;
+  const c = reduced ? (y < anchors[1] * 0.5 ? 0 : 1) : chapterIndex(y);
+  const fade = clamp((c - 3.15) / 0.5);
+  canvas.style.opacity = String(1 - fade);
+  setHalo((1 - fade) * clamp(c - 0.6));
+  cityOnStage = fade < 1;
+  // keep the globe turning until the canvas's CSS opacity transition has finished,
+  // so it never freezes while still visible
+  if (fade >= 1) { fadedAt ??= performance.now(); if (performance.now() - fadedAt > 500) return false; }
+  else fadedAt = null;
+  city.tick(dt);
+  // number band: fades in as the stats chapter arrives, sweeps while its heading is pinned, fades as it leaves
+  const sr = statsEl.getBoundingClientRect();
+  city.ring.p = clamp(-sr.top / Math.max(1, sr.height - vh * 1.25));
+  city.ring.o = reduced ? 0 : clamp((vh * 0.75 - sr.top) / (vh * 0.5)) * clamp((sr.bottom - vh * 0.45) / (vh * 0.4));
+  city.pose(c);
+  renderer.render(city.scene, city.camera);
+  if (!reduced) { startLoop(); return true; }   // idle spin + snow keep running while the globe is on screen
+  return false;
+}
+
+addEventListener("resize", resize);
+addEventListener("load", () => { measure(); requestUpdate(); });
+document.fonts?.ready.then(() => { measure(); requestUpdate(); });
+resize();
+window.__landing = { update, measure };

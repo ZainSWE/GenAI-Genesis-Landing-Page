@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GenAI Genesis 2027</title>
+<meta name="description" content="GenAI Genesis brings together students, researchers, designers, and creators from around the world for an immersive AI hackathon in Toronto, January 2027.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400..800&display=swap">
+<link rel="stylesheet" href="landing/styles.css">
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/",
+    "lenis": "https://cdn.jsdelivr.net/npm/lenis@1.3.11/dist/lenis.mjs"
+} }
+</script>
+<script>
+  // Decide motion mode before first paint so reveal styles never flash.
+  (function () {
+    var d = document.documentElement;
+    d.classList.add("js");
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) d.classList.add("reduced-motion");
+  })();
+</script>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+<canvas id="stage" aria-hidden="true"></canvas>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Primary">
+    <a class="nav-logo" href="#top" aria-label="GenAI Genesis home">GenAI<span>Genesis</span></a>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="#top" class="is-active" data-label="Home">Home</a></li>
+      <li><a href="#about" data-label="About">About</a></li>
+      <li><a href="#sponsors" data-label="Sponsors">Sponsors</a></li>
+      <li><a href="#winners" data-label="Previous Winners">Previous Winners</a></li>
+      <li><a href="#faq" data-label="FAQ">FAQ</a></li>
+    </ul>
+    <a class="btn btn-mint nav-cta" href="#apply">Apply</a>
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">
+      <span class="sr-only">Menu</span><i></i><i></i>
+    </button>
+  </nav>
+</header>
+
+<main id="main">
+
+  <!-- ============ STORY: the Toronto city chapters (canvas behind) ============ -->
+  <div class="story" id="story">
+
+    <section class="chapter hero" id="top" data-chapter="hero" data-nav="top">
+      <div class="hero-copy">
+        <p class="eyebrow">Toronto · Jan 2027</p>
+        <h1 class="display">Build what<br>comes <em>next.</em></h1>
+        <p class="lede">GenAI Genesis brings together students, researchers, designers, and creators from around the world for an immersive AI hackathon experience.</p>
+        <div class="btn-row">
+          <a class="btn btn-ink" href="#apply">Become a judge</a>
+          <a class="btn btn-glass" href="#sponsors">Partner with us</a>
+        </div>
+        <p class="hint">Hacker applications open the first week of January.</p>
+      </div>
+
+      <div class="ticker" aria-label="GenAI Genesis at a glance">
+        <div class="ticker-track">
+          <span><b>1,000+</b> hackers, judges &amp; volunteers</span>
+          <span><b>140+</b> universities</span>
+          <span><b>37+</b> countries</span>
+          <span><b>20+</b> workshops &amp; talks</span>
+          <span><b>30+</b> industry partners</span>
+          <span aria-hidden="true"><b>1,000+</b> hackers, judges &amp; volunteers</span>
+          <span aria-hidden="true"><b>140+</b> universities</span>
+          <span aria-hidden="true"><b>37+</b> countries</span>
+          <span aria-hidden="true"><b>20+</b> workshops &amp; talks</span>
+          <span aria-hidden="true"><b>30+</b> industry partners</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter split-ch white-left" id="about" data-chapter="about" data-nav="about">
+      <div class="white-half" aria-hidden="true"></div>
+      <div class="split-text" data-reveal="left">
+        <header class="sc-top"><span class="sc-tag"><i></i>About GenAI Genesis</span></header>
+        <h2 class="sc-title">Where ideas become <em>prototypes.</em></h2>
+        <p class="sc-body">Over one weekend, teams explore new tech, learn from industry experts, and build working prototypes around problems they care about.</p>
+        <ul class="sc-meta" aria-label="Who takes part"><li>Students</li><li>Researchers</li><li>Designers</li><li>Creators</li></ul>
+      </div>
+    </section>
+
+    <section class="chapter split-ch white-left" id="stats" data-chapter="stats" data-nav="about" aria-labelledby="stats-title">
+      <div class="white-half" aria-hidden="true"></div>
+      <div class="split-text" data-reveal="left">
+        <header class="sc-top"><span class="sc-tag"><i></i>Growing through every edition</span></header>
+        <h2 class="sc-title" id="stats-title">GenAI Genesis 2026, by the <em>numbers.</em></h2>
+      </div>
+      <ul class="stat-col">
+        <li class="stat" data-reveal="right"><b data-count="1000">1,000+</b><span>Hackers, judges &amp; volunteers</span></li>
+        <li class="stat" data-reveal="right"><b data-count="140">140+</b><span>Universities represented</span></li>
+        <li class="stat" data-reveal="right"><b data-count="37">37+</b><span>Countries represented</span></li>
+        <li class="stat" data-reveal="right"><b data-count="20">20+</b><span>Workshops, talks &amp; sessions</span></li>
+        <li class="stat" data-reveal="right"><b data-count="30">30+</b><span>Industry partners &amp; speakers</span></li>
+      </ul>
+    </section>
+
+    <section class="chapter split-ch white-left" id="toronto" data-chapter="toronto" data-nav="about">
+      <div class="white-half" aria-hidden="true"></div>
+      <div class="split-text" data-reveal="left">
+        <header class="sc-top"><span class="sc-tag"><i></i>Toronto: built around innovation</span></header>
+        <h2 class="sc-title">A city moving at the speed of <em>AI.</em></h2>
+        <p class="sc-body">Toronto is one of the world's most active centres for AI. GenAI Genesis connects you with the people and ideas that make it so.</p>
+        <ul class="sc-meta" aria-label="Where and when"><li>Toronto, Ontario</li><li>January 2027</li></ul>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ AI HAS NO BORDERS: subway line ============ -->
+  <section class="borders" id="borders" data-nav="about" aria-labelledby="borders-title">
+    <div class="borders-pin">
+      <div class="wrap borders-head halo">
+        <p class="eyebrow">AI has no borders</p>
+        <h2 class="h2" id="borders-title">Connecting people and ideas from around the world.</h2>
+        <p class="borders-sub"><b>37 countries</b> on one line. Every stop is a country our hackers travelled from.</p>
+      </div>
+      <div class="line-viewport" id="line-viewport" tabindex="0" aria-label="Subway line of participating countries (scrolls sideways)">
+        <ol class="line" id="line"><!-- filled by main.js --></ol>
+      </div>
+      <p class="wrap note">Placeholder stations. Swap in the confirmed attendee country list.</p>
+    </div>
+  </section>
+
+  <!-- ============ PROJECTS ============ -->
+  <section class="section projects" id="winners" data-nav="winners" aria-labelledby="winners-title">
+    <div class="wrap">
+      <div class="section-head" data-reveal="left">
+        <p class="eyebrow">Built at GenAI Genesis</p>
+        <h2 class="h2" id="winners-title">Prototypes that outlived the weekend.</h2>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Project picks">
+        <span class="tab-pill" aria-hidden="true"></span>
+        <button class="tab" role="tab" id="tab-hackers" aria-selected="true" aria-controls="panel-hackers">Most creative</button>
+        <button class="tab" role="tab" id="tab-sponsors" aria-selected="false" aria-controls="panel-sponsors" tabindex="-1">Most technical</button>
+      </div>
+
+      <div class="project-grid" role="tabpanel" id="panel-hackers" aria-labelledby="tab-hackers">
+        <article class="project" data-reveal="up"><p class="award">Winner · 2025</p><h3>Vibe Draw</h3><p>Turns rough sketches into explorable 3D worlds.</p></article>
+        <article class="project" data-reveal="up"><p class="award">Winner · 2025</p><h3>PushBlock</h3><p>Locks your distracting apps until you finish your push-ups.</p></article>
+        <article class="project" data-reveal="up"><p class="award">Winner · 2025</p><h3>CurAItor</h3><p>An AI art museum shaped around what each visitor already knows.</p></article>
+      </div>
+      <div class="project-grid" role="tabpanel" id="panel-sponsors" aria-labelledby="tab-sponsors" hidden>
+        <article class="project"><p class="award">Winner · 2025</p><h3>imagEHR</h3><p>Automates mapping clinical data to CDISC SDTM for research trials.</p></article>
+        <article class="project"><p class="award">Winner · 2025</p><h3>EarthLens</h3><p>Predicts disasters from satellite, weather, and social data.</p></article>
+        <article class="project"><p class="award">Winner · 2025</p><h3>Aartisan</h3><p>A React toolkit that makes web apps easy for AI agents to use.</p></article>
+      </div>
+      <a class="text-link" href="https://genai-genesis-2025.devpost.com/project-gallery" target="_blank" rel="noopener">See every 2025 project on Devpost →</a>
+    </div>
+  </section>
+
+  <!-- ============ PARTNERS + logo marquee ============ -->
+  <section class="section partners" id="sponsors" data-nav="sponsors" aria-labelledby="sponsors-title">
+    <div class="wrap partners-copy" data-reveal="up">
+      <p class="eyebrow">Partner with GenAI Genesis</p>
+      <h2 class="h2" id="sponsors-title">Meet the people building the next wave of AI.</h2>
+      <p>Sponsors mentor teams, run workshops, and meet emerging AI talent from universities worldwide.</p>
+      <a class="btn btn-ink" href="#apply">Partner with us</a>
+    </div>
+    <div class="marquee" aria-label="Past sponsors">
+      <p class="marquee-label">Past sponsors</p>
+      <div class="marquee-viewport">
+        <ul class="marquee-track" id="marquee"><!-- filled by main.js --></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SIDE QUESTS ============ -->
+  <section class="section quests" id="quests" data-nav="sponsors" aria-labelledby="quests-title">
+    <div class="wrap">
+      <div class="section-head center" data-reveal="up">
+        <p class="eyebrow">The side quests</p>
+        <h2 class="h2" id="quests-title">The unofficial part of GenAI Genesis.</h2>
+        <p>The moments between building and demos that make the weekend memorable.</p>
+      </div>
+      <ul class="polaroids">
+        <li class="polaroid p1" data-reveal="left"><div class="photo ph-mint"><span>Photo: therapy dogs</span></div><p>Therapy dogs</p></li>
+        <li class="polaroid p2" data-reveal="up"><div class="photo ph-lilac"><span>Photo: poker night</span></div><p>Poker nights</p></li>
+        <li class="polaroid p3" data-reveal="right"><div class="photo ph-peach"><span>Photo: ramen battle</span></div><p>Spicy ramen battles</p></li>
+      </ul>
+      <p class="quests-foot">Every great hackathon needs a few stories that don't fit in the submission form :)</p>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="section faq" id="faq" data-nav="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-grid">
+      <div class="section-head" data-reveal="left">
+        <p class="eyebrow">FAQ</p>
+        <h2 class="h2" id="faq-title">Questions, answered.</h2>
+        <p class="note">Draft answers. Replace with last year's FAQ doc.</p>
+      </div>
+      <div class="faq-list" data-reveal="right">
+        <details open><summary><span>Who can apply?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Students, researchers, designers, and creators. No prior AI experience needed.</p></div></details>
+        <details><summary><span>How much does it cost?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Nothing. It's free for accepted hackers, meals included.</p></div></details>
+        <details><summary><span>Do I need a team?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>No. Apply solo and meet teammates at team formation on day one.</p></div></details>
+        <details><summary><span>When do applications open?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Judges: November–December. Hackers: the first week of January 2027.</p></div></details>
+        <details><summary><span>Where is it held?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>In Toronto. Accepted participants get venue and travel details.</p></div></details>
+        <details><summary><span>How can my company get involved?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Sponsor a challenge, run a workshop, mentor, or judge. Tap "Partner with us".</p></div></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FINALE: the crew on the subway + CTA ============ -->
+  <section class="finale" id="apply" data-nav="apply" aria-labelledby="crew-title">
+    <div class="finale-pin">
+      <div class="finale-copy crew-copy halo" id="crew-copy">
+        <p class="eyebrow">Meet the team</p>
+        <h2 class="h2" id="crew-title">Your crew for GenAI Genesis 2027.</h2>
+        <p class="crew-count"><b id="crew-n">0</b> of <span id="crew-total">8</span> on board</p>
+      </div>
+      <div class="finale-copy cta-copy" id="cta-copy">
+        <p class="eyebrow">Now boarding</p>
+        <h2 class="display finale-title">Next stop: <em>GenAI&nbsp;Genesis.</em></h2>
+        <p class="lede">Toronto · January 2027. Choose how you're getting on.</p>
+        <div class="btn-row">
+          <a class="btn btn-mint" href="#apply" data-soon="Opens 1st week of Jan">Apply as a hacker</a>
+          <a class="btn btn-ink" href="#apply" data-soon="Opens Nov–Dec">Become a judge</a>
+          <a class="btn btn-glass" href="#sponsors">Partner with us</a>
+        </div>
+      </div>
+      <div class="crew-labels" id="crew-labels" aria-hidden="true"></div>
+      <ul class="sr-only" id="crew-list"><!-- team list for screen readers --></ul>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <p class="footer-logo">GenAI<span>Genesis</span></p>
+    <p>Toronto, Ontario · © 2027 GenAI Genesis</p>
+    <ul>
+      <li><a href="#about">About</a></li>
+      <li><a href="#sponsors">Sponsors</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script type="module" src="landing/main.js"></script>
+</body>
+</html>

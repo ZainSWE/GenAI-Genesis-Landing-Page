@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CN Tower model preview</title>
+<!-- Dev preview. Serve the project root over HTTP (ES modules + .glb won't load from file://):
+       python -m http.server 8000   ->  http://localhost:8000/source/cn-tower/preview.html
+     URL params: ?p=0..1 (scroll stop), ?turn=deg, ?ref (screenshot framing), ?bare,
+                 ?fov=deg, ?cam=x,y,z&look=x,y,z -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --panel: #093d45; --cyan: #2ff4fd; --purple: #755ecb; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: "Inter", system-ui, sans-serif; color: #fff; }
+  body {
+    background:
+      radial-gradient(120% 90% at 88% 4%, #c9feff 0%, rgba(201,254,255,0) 32%),
+      linear-gradient(160deg, #0a6672 0%, #0aa1a0 38%, #14d9d3 66%, #2ffbfd 100%);
+    display: grid; grid-template-rows: 1fr auto; overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #stage { position: relative; min-height: 0; }
+  .panel {
+    background: var(--panel); padding: 14px 18px; display: flex; gap: 18px;
+    align-items: center; flex-wrap: wrap; font-size: 14px;
+  }
+  .panel strong { font-weight: 800; }
+  label { display: flex; align-items: center; gap: 8px; }
+  input[type=range] { accent-color: var(--cyan); width: min(320px, 60vw); }
+  button {
+    font: inherit; font-weight: 600; color: #fff; background: var(--purple);
+    border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer;
+  }
+  #stats { opacity: .75; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" aria-label="3D CN Tower preview"></canvas></div>
+<div class="panel">
+  <strong>CN Tower</strong>
+  <label>Scroll progress <input id="progress" type="range" min="0" max="1" step="0.001" value="0"></label>
+  <label>Turn <input id="turn" type="range" min="-180" max="180" step="1" value="0"></label>
+  <button id="view-ref" type="button">Reference view</button>
+  <span id="stats"></span>
+</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { applyTwoTone } from "../../assets/cn-tower/two-tone-material.js";
+
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+
+// Suggested scroll stops (world units; tower height = 10, base at y = 0).
+//   pos = camera position, look = target. Small upward/downward tilts reveal
+//   the deck's top face or the pod's underside the way the artwork does.
+const STOPS = [
+  { pos: [0, 3.2, 19.0], look: [0, 5.0, 0] },   // hero: whole tower, slight low angle
+  { pos: [0, 6.5,  5.2], look: [0, 6.0, 0] },   // main deck close-up, just above deck
+  { pos: [0, 5.2,  4.6], look: [0, 6.2, 0] },   // below the pod, looking up at the opening
+  { pos: [0, 8.9,  4.2], look: [0, 8.2, 0] },   // SkyPod + antenna bands
+];
+const REF_VIEW = { pos: [0, 5.6, 11.5], look: [0, 6.3, 0] }; // matches the screenshot crop
+
+const tower = new THREE.Group();
+scene.add(tower);
+
+const gltf = await new GLTFLoader().loadAsync("../../assets/cn-tower/cn-tower.glb");
+applyTwoTone(gltf.scene, THREE);
+tower.add(gltf.scene);
+
+let tris = 0;
+gltf.scene.traverse((o) => { if (o.isMesh) tris += o.geometry.index.count / 3; });
+document.getElementById("stats").textContent = `${tris.toLocaleString()} triangles`;
+
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => t * t * (3 - 2 * t);
+const look = new THREE.Vector3();
+function setCamera(p) {
+  const seg = Math.min(STOPS.length - 2, Math.floor(p * (STOPS.length - 1)));
+  const t = ease(p * (STOPS.length - 1) - seg);
+  const a = STOPS[seg], b = STOPS[seg + 1];
+  camera.position.set(...a.pos.map((v, i) => lerp(v, b.pos[i], t)));
+  look.set(...a.look.map((v, i) => lerp(v, b.look[i], t)));
+  camera.lookAt(look);
+}
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = canvas.parentElement;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  // FOV is vertical, so the tower's framing holds on portrait screens too.
+  camera.updateProjectionMatrix();
+}
+
+let queued = false;
+function render() {
+  if (queued) return;
+  queued = true;
+  requestAnimationFrame(() => { queued = false; renderer.render(scene, camera); });
+}
+
+const progress = document.getElementById("progress");
+const turn = document.getElementById("turn");
+progress.addEventListener("input", () => { setCamera(+progress.value); render(); });
+turn.addEventListener("input", () => { tower.rotation.y = THREE.MathUtils.degToRad(+turn.value); render(); });
+document.getElementById("view-ref").addEventListener("click", () => {
+  camera.position.set(...REF_VIEW.pos); camera.lookAt(...REF_VIEW.look); render();
+});
+window.addEventListener("resize", () => { resize(); render(); });
+
+const params = new URLSearchParams(location.search);
+if (params.has("bare")) document.querySelector(".panel").style.display = "none";
+resize();
+if (params.has("fov")) { camera.fov = +params.get("fov"); camera.updateProjectionMatrix(); }
+setCamera(+(params.get("p") ?? 0));
+if (params.has("ref")) { camera.position.set(...REF_VIEW.pos); camera.lookAt(...REF_VIEW.look); }
+if (params.has("cam")) { camera.position.set(...params.get("cam").split(",").map(Number)); camera.lookAt(...(params.get("look") ?? "0,5,0").split(",").map(Number)); }
+if (params.has("turn")) tower.rotation.y = THREE.MathUtils.degToRad(+params.get("turn"));
+render();
+window.__ready = true;
+</script>
+</body>
+</html>
