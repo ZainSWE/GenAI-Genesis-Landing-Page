@@ -418,10 +418,12 @@ export async function createCity(model, { stats = [] } = {}) {
     statRing.add(m);
   });
   statRing.visible = false;
-  // stat i sits at angle i*STEP. Scroll adds a gentle push (about a fifth of a lap
-  // across the pinned chapter) on top of the slow idle drift that keeps it turning.
+  // stat i sits at angle i*STEP. Across the pinned chapter, scroll turns the band
+  // just far enough for every stat to cross the front in order (1,000+ first,
+  // 30+ last); a slow idle drift keeps it turning on top. The drift resets while
+  // the band is hidden, so each visit starts with the first stat coming round.
   const SWEEP_START = THREE.MathUtils.degToRad(40);
-  const SWEEP = (Math.PI * 2 + STEP * 0.5) * 0.2;
+  const SWEEP = (stats.length - 1) * STEP + SWEEP_START + THREE.MathUtils.degToRad(8);
   let ringIdle = 0;
   // p: progress through the stats chapter (0..1), o: its visibility; set by the page each frame
   const ringState = { p: 0, o: 0 };
@@ -429,6 +431,7 @@ export async function createCity(model, { stats = [] } = {}) {
     const o = Math.min(1, Math.max(0, ringState.o));
     ringU.uOpacity.value = o * o * (3 - 2 * o);
     statRing.visible = stats.length > 0 && ringU.uOpacity.value > 0.002;
+    if (!statRing.visible) ringIdle = 0;
     const p = Math.min(1, Math.max(0, ringState.p));
     statRing.rotation.y = SWEEP_START - p * SWEEP - ringIdle;
   }

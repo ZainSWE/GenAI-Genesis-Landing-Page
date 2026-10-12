@@ -249,7 +249,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 /* stats: with WebGL the numbers orbit the globe as a 3D band, so the chapter is
    taller (more scroll for the sweep) and its heading stays pinned meanwhile.
    The flat list stays in the DOM for screen readers and as the fallback. */
-.stats-ring #stats { min-height: 210svh; align-items: start; }
+.stats-ring #stats { min-height: 280svh; align-items: start; }
 .stats-ring #stats .split-text { position: sticky; top: 0; min-height: 100svh; align-content: center; padding-block: 12vh; }
 .stats-ring .stat-col { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0; }
 /* stats stacked vertically over the globe half (fallback) */
