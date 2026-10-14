@@ -18,6 +18,7 @@ import { createCity, PASTEL } from "./city.js";
 import { createStreetcar } from "./streetcar.js";
 import { createBackdrop } from "./backdrop.js";
 import { LOGOS } from "./logos.js";
+import { createFerry } from "./ferry.js";
 
 const reduced = document.documentElement.classList.contains("reduced-motion");
 const $ = (s, r = document) => r.querySelector(s);
@@ -71,11 +72,39 @@ function layoutMetro() {
   const hb = head.bottom - box.top;                       // heading bottom inside the map
   metroHeadBottom = hb;
   const gx = Math.max(24, Math.min(W * 0.06, (W - 1180) / 2 + 40));
-  let pts;
+  let pts, fixed = null;
   if (W > 760) {
-    const yB = hb + Math.max(84, H * 0.1), yA = Math.min(H - 150, yB + H * 0.15), yC = H - 110;
-    const x1 = gx, x2 = W * 0.56, x3 = W - Math.max(80, gx + 40);
-    pts = [[-30, yA], [x1, yA], [x1, yB], [x2, yB], [x2, yC], [x3, yC], [x3, Math.max(96, H * 0.12)]];
+    // Desktop: every straight stretch is a whole number of station gaps, and each bend
+    // takes exactly one empty slot, so stations keep one rhythm all the way along the
+    // line and every corner has the same gap. Solve for the largest gap that fits.
+    const n = stopEls.length, yB = hb + Math.max(84, H * 0.1), yMax = H - 110, yTop = 96;
+    const xMax = W - Math.max(80, gx + 40);
+    let g = 0, m = null;
+    for (let s = 96; s >= 30; s -= 0.5) {
+      const m1 = Math.max(2, Math.round((H * 0.15) / s));                 // left riser
+      const m3 = Math.floor((yMax - yB) / s);                            // middle riser
+      const m5 = Math.floor((yB + m3 * s - yTop) / s);                   // right riser (to the end)
+      const rest = n + 4 - 1 - m1 - m3 - m5;                             // slots left for the two rows
+      if (m3 < 2 || m5 < 2 || rest < 4) continue;
+      const x1 = Math.max(gx, s + 24);
+      if (x1 + rest * s > xMax) continue;
+      const m2 = Math.round(rest * 0.56), m4 = rest - m2;
+      g = s; m = { m1, m2, m3, m4, m5, x1 }; break;
+    }
+    if (m) {
+      const { m1, m2, m3, m4, m5, x1 } = m;
+      const yA = yB + m1 * g, x2 = x1 + m2 * g, yC = yB + m3 * g, x3 = x2 + m4 * g, yEnd = yC - m5 * g;
+      pts = [[Math.min(-30, x1 - 2 * g), yA], [x1, yA], [x1, yB], [x2, yB], [x2, yC], [x3, yC], [x3, yEnd]];
+      fixed = [[x1 - g, yA, false]];
+      for (let k = 1; k < m1; k++) fixed.push([x1, yA - k * g, true]);
+      for (let k = 1; k < m2; k++) fixed.push([x1 + k * g, yB, false]);
+      for (let k = 1; k < m3; k++) fixed.push([x2, yB + k * g, true]);
+      for (let k = 1; k < m4; k++) fixed.push([x2 + k * g, yC, false]);
+      for (let k = 1; k <= m5; k++) fixed.push([x3, yC - k * g, true]);
+    } else {                                                              // very small screens: old even spread
+      const yA = Math.min(H - 150, yB + H * 0.15);
+      pts = [[-30, yA], [gx, yA], [gx, yB], [W * 0.56, yB], [W * 0.56, yMax], [xMax, yMax], [xMax, Math.max(96, H * 0.12)]];
+    }
   } else {
     const top = hb + 40, bottom = H - 108, rows = 4, gap = (bottom - top) / (rows - 1);
     const xl = 26, xr = W - 26;
@@ -123,11 +152,23 @@ function layoutMetro() {
       return runs[runs.length - 1][1];
     };
   }
+  // desktop grid: path length of each fixed station, for the travelled-line highlight
+  let fixedAt = null;
+  if (fixed) {
+    const samples = [];
+    for (let s = 0; s <= metroLen; s += 2) { const pt = metroTrack.getPointAtLength(s); samples.push([s, pt.x, pt.y]); }
+    fixedAt = fixed.map(([x, y]) => samples.reduce((b, c) => (Math.hypot(c[1] - x, c[2] - y) < Math.hypot(b[1] - x, b[2] - y) ? c : b))[0]);
+  }
   metroPts = stopEls.map((el, i) => {
-    const at = along(i);
-    const p = metroTrack.getPointAtLength(at), q = metroTrack.getPointAtLength(Math.min(metroLen, at + 4));
+    let at, p, vertical;
+    if (fixed) { at = fixedAt[i]; p = { x: fixed[i][0], y: fixed[i][1] }; vertical = fixed[i][2]; }
+    else {
+      at = along(i);
+      p = metroTrack.getPointAtLength(at);
+      const q = metroTrack.getPointAtLength(Math.min(metroLen, at + 4));
+      vertical = Math.abs(q.y - p.y) > Math.abs(q.x - p.x);
+    }
     el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
-    const vertical = Math.abs(q.y - p.y) > Math.abs(q.x - p.x);
     // beside vertical runs: on the right (left only if the run hugs the right screen edge)
     const side = vertical ? (p.x > W - 70 ? "left" : "right") : "below";
     el.dataset.side = side;
@@ -210,6 +251,71 @@ const SPONSORS = [
 ];
 const logoHTML = (s, hidden) => `<li class="logo l-${s.id}"${hidden ? ' aria-hidden="true"' : ` aria-label="${s.name}"`}>${s.svg || ""}${s.text ? `<span class="wordmark${s.svg ? " light" : ""}">${s.text}</span>` : ""}</li>`;
 $("#marquee").innerHTML = SPONSORS.map((s) => logoHTML(s, false)).join("") + SPONSORS.map((s) => logoHTML(s, true)).join("");
+
+/* -------------------------------------------------------------- hero ticker */
+// Repeat the stat strip until one copy is wider than the screen, then double it,
+// so the -50% loop never shows a gap at the end.
+const tickerTrack = $(".ticker-track");
+const tickerItems = [...tickerTrack.children].filter((el) => !el.hasAttribute("aria-hidden")).map((el) => el.outerHTML);
+function buildTicker() {
+  tickerTrack.innerHTML = tickerItems.join("");
+  const setW = tickerTrack.scrollWidth || 1;
+  const reps = Math.max(1, Math.ceil((innerWidth + 40) / setW));
+  const hidden = tickerItems.map((h) => h.replace("<span", '<span aria-hidden="true"')).join("");
+  const half = tickerItems.join("") + hidden.repeat(reps - 1);
+  tickerTrack.innerHTML = half + hidden.repeat(reps);
+  tickerTrack.style.animationDuration = `${(38 * reps).toFixed(0)}s`;   // same speed however many copies
+}
+buildTicker();
+document.fonts?.ready.then(buildTicker);
+let tickerW = innerWidth;
+addEventListener("resize", () => { if (Math.abs(innerWidth - tickerW) > 40) { tickerW = innerWidth; buildTicker(); } });
+
+/* --------------------------------------------------------- easter-egg hunt */
+// Three Toronto-themed eggs are hidden around the page; each one unlocks its
+// candid card. Progress is kept per visitor in localStorage.
+const EGG_KEY = "gag-eggs-v1";
+const EGGS = {
+  dog: { what: "the pup", card: "Therapy dogs" },
+  chip: { what: "the lucky chip", card: "Poker nights" },
+  ramen: { what: "the ramen bowl", card: "Spicy ramen battles" },
+};
+const eggTotal = Object.keys(EGGS).length;
+let eggsFound = new Set();
+try { eggsFound = new Set(JSON.parse(localStorage.getItem(EGG_KEY) || "[]").filter((k) => k in EGGS)); } catch (e) { /* storage off: progress lasts this visit */ }
+const eggToast = document.createElement("div");
+eggToast.className = "egg-toast"; eggToast.setAttribute("role", "status"); eggToast.setAttribute("aria-live", "polite");
+document.body.append(eggToast);
+let eggToastTimer = 0;
+function showEggToast(html) {
+  eggToast.innerHTML = html; eggToast.classList.add("show");
+  clearTimeout(eggToastTimer); eggToastTimer = setTimeout(() => eggToast.classList.remove("show"), 3200);
+}
+function renderEggs(just) {
+  $$(".polaroid[data-egg]").forEach((card) => {
+    const open = eggsFound.has(card.dataset.egg);
+    card.classList.toggle("locked", !open);
+    if (open && card.dataset.egg === just) { card.classList.add("just-unlocked"); setTimeout(() => card.classList.remove("just-unlocked"), 1000); }
+  });
+  $("#egg-count").textContent = eggsFound.size;
+  if (eggsFound.size === eggTotal) $("#egg-hint > span").textContent = "You found every easter egg. Enjoy the candids!";
+}
+$$(".egg").forEach((btn) => {
+  if (eggsFound.has(btn.dataset.egg)) btn.hidden = true;
+  btn.addEventListener("click", () => {
+    const k = btn.dataset.egg;
+    if (eggsFound.has(k)) return;
+    eggsFound.add(k);
+    try { localStorage.setItem(EGG_KEY, JSON.stringify([...eggsFound])); } catch (e) {}
+    btn.classList.add("found");
+    setTimeout(() => { btn.hidden = true; }, reduced ? 0 : 520);
+    renderEggs(k);
+    showEggToast(eggsFound.size === eggTotal
+      ? `All ${eggTotal} found! <b>Every candid is unlocked.</b>`
+      : `You found ${EGGS[k].what}! <b>${EGGS[k].card}</b> unlocked · ${eggsFound.size}/${eggTotal}`);
+  });
+});
+renderEggs();
 
 /* --------------------------------------------------------------- nav + UI */
 const nav = $(".nav");
@@ -443,6 +549,10 @@ try {
 const modelUrl = new URL("../assets/cn-tower/cn-tower.glb", import.meta.url).href;
 let city = null;
 const subway = renderer ? createStreetcar(TEAM) : null;
+subway?.setTheme(document.documentElement.dataset.theme === "dark");
+// FAQ ferry (its own small canvas under the FAQ title)
+const ferry = renderer ? createFerry($(".ferry-canvas"), { reduced, weak: (navigator.hardwareConcurrency || 8) <= 4 }) : null;
+ferry?.setTheme(document.documentElement.dataset.theme === "dark");
 if (renderer) {
   // the stats list doubles as the source for the 3D number band around the globe
   const stats = $$(".stat-col .stat").map((li, i, all) => ({
@@ -450,6 +560,7 @@ if (renderer) {
   }));
   createCity(modelUrl, { stats }).then((c) => {
     city = c; subway?.addTower(c.towerModel, PASTEL);
+    c.setTheme(document.documentElement.dataset.theme === "dark");
     if (!reduced) document.documentElement.classList.add("stats-ring");   // the band replaces the flat list
     resize(); requestUpdate();
   })
@@ -464,6 +575,27 @@ function resize() {
   measure();
   requestUpdate();
 }
+
+/* -------------------------------------------------------------- dark mode */
+const themeBtn = $("#theme-toggle");
+function applyTheme(dark, animate) {
+  const root = document.documentElement;
+  if (animate && !reduced) { root.classList.add("theme-anim"); setTimeout(() => root.classList.remove("theme-anim"), 500); }
+  if (dark) root.setAttribute("data-theme", "dark"); else root.removeAttribute("data-theme");
+  themeBtn.setAttribute("aria-pressed", String(dark));
+  themeBtn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+  backdrop?.setDark(dark, !animate);
+  city?.setTheme(dark);
+  subway?.setTheme(dark);
+  ferry?.setTheme(dark);
+  if (animate) requestUpdate();                 // (initial call runs before the scroll loop exists)
+}
+applyTheme(document.documentElement.dataset.theme === "dark", false);
+themeBtn.addEventListener("click", () => {
+  const dark = document.documentElement.dataset.theme !== "dark";
+  try { localStorage.setItem("gag-theme", dark ? "dark" : "light"); } catch (e) {}
+  applyTheme(dark, true);
+});
 
 /* --------------------------------------------------------------- scrolling */
 const chapters = $$("[data-chapter]");

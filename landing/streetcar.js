@@ -29,17 +29,23 @@ const COL = {
   platform: "#F6F2FD", edge: "#F7D14A", road: "#CFC3EE", rail: "#9A90BF",
 };
 const lightW = { value: new THREE.Vector2(-0.8, 0.6).normalize() };   // lights the platform side
+const nightU = { value: 0 };                                          // dark mode: dims and cools the scene
+const NIGHT = new THREE.Color(0.48, 0.44, 0.7), DAY = new THREE.Color(1, 1, 1);
+const nightBasics = [];                                               // plain materials dimmed by colour
+function nightBasic(m, k = 1) { nightBasics.push([m, m.color.clone(), k]); return m; }
 
-function flat(color, shade, topMix = 0.45) {
+// night: how strongly dark mode dims this material (street and buildings fully, the car a little)
+function flat(color, shade, topMix = 0.45, night = 0.35) {
   const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
   m.onBeforeCompile = (s) => {
     s.uniforms.uLight = lightW;
     s.uniforms.uShade = { value: new THREE.Color(shade || color) };
+    s.uniforms.uNight = nightU;
     s.vertexShader = s.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vN;")
       .replace("#include <project_vertex>", "#include <project_vertex>\nvN = normalize(mat3(modelMatrix) * normal);");
     s.fragmentShader = s.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vN;\nuniform vec2 uLight;\nuniform vec3 uShade;")
+      .replace("#include <common>", "#include <common>\nvarying vec3 vN;\nuniform vec2 uLight;\nuniform vec3 uShade;\nuniform float uNight;")
       .replace("#include <color_fragment>", `#include <color_fragment>
         vec3 n = normalize(vN);
         vec3 b = diffuseColor.rgb;
@@ -47,9 +53,10 @@ function flat(color, shade, topMix = 0.45) {
         vec3 c = mix(uShade, b, lit);
         if (n.y > 0.6) c = mix(b, vec3(1.0), ${topMix.toFixed(2)});
         if (n.y < -0.6) c = mix(uShade, vec3(0.0), 0.08);
+        c = mix(c, c * vec3(0.44, 0.4, 0.66) + vec3(0.025, 0.015, 0.06), uNight * ${night.toFixed(2)});
         diffuseColor.rgb = c;`);
   };
-  m.customProgramCacheKey = () => "sc-flat-" + topMix;
+  m.customProgramCacheKey = () => "sc-flat-" + topMix + "-" + night;
   return m;
 }
 
@@ -491,19 +498,19 @@ export function createStreetcar(team) {
 
   // Street: asphalt, white lane lines, the streetcar rails, sidewalks under the buildings
   const world = new THREE.Group(); scene.add(world);
-  const road = new THREE.Mesh(new THREE.PlaneGeometry(30, 400), flat("#D5CDEB", "#B3A5E3", 0.0));
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(30, 400), flat("#D5CDEB", "#B3A5E3", 0.0, 1));
   road.rotation.x = -Math.PI / 2; road.position.set(-2.5, -0.01, -150); world.add(road);
-  const trackLane = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 400), flat("#CBC2E6", "#B3A5E3", 0.0));
+  const trackLane = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 400), flat("#CBC2E6", "#B3A5E3", 0.0, 1));
   trackLane.rotation.x = -Math.PI / 2; trackLane.position.set(0, -0.006, -150); world.add(trackLane);
   for (const x of [-0.72, 0.72]) {
-    const r = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 400), new THREE.MeshBasicMaterial({ color: COL.rail }));
+    const r = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.03, 400), nightBasic(new THREE.MeshBasicMaterial({ color: COL.rail })));
     r.position.set(x, 0.0, -150); world.add(r);
   }
   const dashTex = canvasTex(16, 128, (g) => { g.clearRect(0, 0, 16, 128); g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, 16, 64); });
   dashTex.wrapS = dashTex.wrapT = THREE.RepeatWrapping; dashTex.repeat.set(1, 66);
-  const lineMat = new THREE.MeshBasicMaterial({ color: "#FFFFFF" });
+  const lineMat = nightBasic(new THREE.MeshBasicMaterial({ color: "#FFFFFF" }), 0.8);
   const lane = (x, dashed, w = 0.14) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 400), dashed ? new THREE.MeshBasicMaterial({ map: dashTex, transparent: true }) : lineMat);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 400), dashed ? nightBasic(new THREE.MeshBasicMaterial({ map: dashTex, transparent: true }), 0.8) : lineMat);
     m.rotation.x = -Math.PI / 2; m.position.set(x, 0.002, -150); world.add(m);
   };
   lane(-1.75, false, 0.1); lane(1.75, false, 0.1);       // track lane edges
@@ -518,9 +525,9 @@ export function createStreetcar(team) {
   const CURB = 0.16;
   for (const [x0, x1] of [[-30, -11.2], [10.4, 30]]) {
     const wdt = x1 - x0;
-    const walk = new THREE.Mesh(new THREE.PlaneGeometry(wdt, 400), new THREE.MeshBasicMaterial({ map: tileTex }));
+    const walk = new THREE.Mesh(new THREE.PlaneGeometry(wdt, 400), nightBasic(new THREE.MeshBasicMaterial({ map: tileTex })));
     walk.rotation.x = -Math.PI / 2; walk.position.set((x0 + x1) / 2, CURB, -150); world.add(walk);
-    const curb = new THREE.Mesh(new THREE.PlaneGeometry(400, CURB), flat("#E3DCF5", "#C2B6EA"));
+    const curb = new THREE.Mesh(new THREE.PlaneGeometry(400, CURB), flat("#E3DCF5", "#C2B6EA", 0.45, 1));
     curb.rotation.y = x0 < 0 ? Math.PI / 2 : -Math.PI / 2; curb.position.set(x0 < 0 ? x1 : x0, CURB / 2, -150); world.add(curb);
   }
   const edgeTex = dashTex;   // scrolled with the lane dashes
@@ -554,7 +561,7 @@ export function createStreetcar(team) {
     }
   }
   const unitBox = new THREE.BoxGeometry(1, 1, 1); unitBox.translate(0, 0.5, 0);
-  const rowMat = flat("#FFFFFF", "#BFE8EA", 0.3);
+  const rowMat = flat("#FFFFFF", "#BFE8EA", 0.3, 1);
   rowMat.transparent = true;
   const baseCompile = rowMat.onBeforeCompile;
   rowMat.onBeforeCompile = (sh) => {      // fade with distance so buildings melt into the horizon
@@ -591,7 +598,7 @@ export function createStreetcar(team) {
     t.traverse((n) => {
       if (!n.isMesh) return;
       const [lit, shade] = palette[n.material.name] || ["#FFFFFF", "#DDDDDD"];
-      n.material = flat(lit, shade, 0.2);
+      n.material = flat(lit, shade, 0.2, 0.8);
     });
     t.scale.setScalar(30);
     t.position.set(270, 0, -600);
@@ -692,5 +699,9 @@ export function createStreetcar(team) {
     });
   }
 
-  return { scene, camera, setProgress, tick, labels, total, addTower, get revealed() { return revealCount; } };
+  function setTheme(dark) {
+    nightU.value = dark ? 1 : 0;
+    for (const [m, c, k] of nightBasics) m.color.copy(c).multiply(dark ? DAY.clone().lerp(NIGHT, k) : DAY);
+  }
+  return { scene, camera, setProgress, tick, labels, total, addTower, setTheme, get revealed() { return revealCount; } };
 }

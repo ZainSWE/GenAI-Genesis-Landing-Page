@@ -22,6 +22,7 @@
     var d = document.documentElement;
     d.classList.add("js");
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) d.classList.add("reduced-motion");
+    try { if (localStorage.getItem("gag-theme") === "dark") d.setAttribute("data-theme", "dark"); } catch (e) {}
   })();
 </script>
 </head>
@@ -41,6 +42,7 @@
       <li><a href="#sponsors" data-label="Sponsors">Sponsors</a></li>
       <li><a href="#faq" data-label="FAQ">FAQ</a></li>
     </ul>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode"><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z" fill="currentColor"/></svg><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.4" fill="currentColor"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     <a class="btn btn-mint nav-cta" href="#apply">Apply</a>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">
       <span class="sr-only">Menu</span><i></i><i></i>
@@ -57,7 +59,7 @@
       <div class="hero-copy">
         <p class="eyebrow">Toronto · Jan 2027</p>
         <h1 class="display">Build what<br>comes <em>next.</em></h1>
-        <p class="lede">GenAI Genesis brings together students, researchers, designers, and creators from around the world for an immersive AI hackathon experience.</p>
+        <p class="lede">Bringing together 1000+ students, researchers, designers, and creators from around the world for Canada's largest AI hackathon.</p>
         <div class="btn-row">
           <a class="btn btn-ink" href="#apply">Become a judge</a>
           <a class="btn btn-glass" href="#sponsors">Partner with us</a>
@@ -82,10 +84,11 @@
     </section>
 
     <section class="chapter split-ch white-left" id="about" data-chapter="about" data-nav="about">
+      <button class="egg egg-dog" type="button" data-egg="dog" aria-label="Easter egg: a pup in a toque"><svg viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="38" rx="12" ry="7.5" fill="#F2BE86"/><ellipse cx="14.5" cy="24" rx="3.6" ry="6.5" fill="#B9773F" transform="rotate(18 14.5 24)"/><ellipse cx="33.5" cy="24" rx="3.6" ry="6.5" fill="#B9773F" transform="rotate(-18 33.5 24)"/><circle cx="24" cy="24" r="10" fill="#F2BE86"/><circle cx="20.4" cy="23" r="1.6" fill="#0D0B16"/><circle cx="27.6" cy="23" r="1.6" fill="#0D0B16"/><ellipse cx="24" cy="27.2" rx="2.1" ry="1.5" fill="#0D0B16"/><path d="M22.6 29.4q1.4 2.6 2.8 0" fill="#FF7A9C"/><path d="M13.6 19.5Q24 4 34.4 19.5Z" fill="#2E5BD8"/><rect x="13" y="17.4" width="22" height="4.4" rx="2.2" fill="#fff"/><circle cx="24" cy="7.4" r="3.1" fill="#fff"/></svg></button>
       <div class="white-half" aria-hidden="true"></div>
       <div class="split-text" data-reveal="left" data-story>
         <header class="sc-top"><span class="sc-tag"><i></i>About GenAI Genesis</span></header>
-        <h2 class="sc-title">We are Canada'sLargest AI <em>Hackathon.</em></h2>
+        <h2 class="sc-title">Canada's Largest AI <em>Hackathon.</em></h2>
         <p class="sc-body">Over one weekend, teams explore new tech, learn from industry experts, and build working prototypes around problems they care about.</p>
         <ul class="sc-meta" aria-label="Who takes part"><li>Students</li><li>Researchers</li><li>Designers</li><li>Creators</li></ul>
       </div>
@@ -111,8 +114,8 @@
       <div class="split-text" data-reveal="left" data-story>
         <header class="sc-top"><span class="sc-tag"><i></i>Toronto: built around innovation</span></header>
         <h2 class="sc-title">A city moving at the speed of <em>AI.</em></h2>
-        <p class="sc-body">Toronto is one of the world's most active centres for AI. GenAI Genesis connects you with the people and ideas that make it so.</p>
-        <ul class="sc-meta" aria-label="Where and when"><li>Toronto, Ontario</li><li>January 2027</li></ul>
+        <p class="sc-body">AI's deep learning breakthrough began in Toronto in 2012 with the creation of AlexNet. GenAI Genesis now brings the next generation of builders back to the city where it all started.</p>
+        <ul class="sc-meta" aria-label="Where and when"><li>Toronto, Ontario</li><li>March 2027</li></ul>
       </div>
     </section>
   </div>
@@ -129,6 +132,7 @@
         <svg class="metro-svg" aria-hidden="true"><path class="metro-track"/><path class="metro-done"/></svg>
         <ol class="line" id="line" aria-label="Subway line of participating countries"><!-- filled by main.js --></ol>
         <p class="metro-label" aria-hidden="true"><b class="name"></b></p>
+        <button class="egg egg-ramen" type="button" data-egg="ramen" aria-label="Easter egg: a ramen bowl"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 6c-2 3 2 4 0 7M24 4c-2 3 2 4 0 7M31 6c-2 3 2 4 0 7" fill="none" stroke="#B9A9E8" stroke-width="2" stroke-linecap="round"/><path d="M30 9 44 24M33 8l13 13" stroke="#8A5A2B" stroke-width="2.2" stroke-linecap="round"/><ellipse cx="24" cy="24" rx="19" ry="5" fill="#FFE7B0"/><path d="M10 23q3 3 6 0t6 0 6 0 6 0 6 0" fill="none" stroke="#F2C76B" stroke-width="2"/><circle cx="17" cy="22.5" r="2.6" fill="#fff"/><circle cx="17" cy="22.5" r="1.2" fill="#FFB020"/><path d="M5 24h38c0 10-8.5 17-19 17S5 34 5 24z" fill="#FF5A45"/><path d="M14 42h20" stroke="#C93A2B" stroke-width="3" stroke-linecap="round"/><path d="M10 30q14 6 28 0" fill="none" stroke="#fff" stroke-width="1.6" opacity=".6"/></svg></button>
       </div>
     </div>
   </section>
@@ -147,14 +151,14 @@
       </div>
 
       <div class="project-grid" role="tabpanel" id="panel-hackers" aria-labelledby="tab-hackers">
-        <article class="project" data-reveal="up"><p class="award">Winner · 2026</p><h3><a href="https://devpost.com/software/agentropolis" target="_blank" rel="noopener">Agentropolis</a></h3><p class="track"><b>Google</b> Best AI for Community Impact</p><p>Toronto's residents, replaced by AI doppelgängers living out their days on a 3D map of the city.</p></article>
-        <article class="project" data-reveal="up"><p class="award">Winner · 2026</p><h3><a href="https://devpost.com/software/voxel-pnxmlc" target="_blank" rel="noopener">Voxel</a></h3><p class="track"><b>IBM</b> Best AI Hack using IBM Technology</p><p>An AR headset app that turns prompts and diagrams into 3D models students can explore.</p></article>
-        <article class="project" data-reveal="up"><p class="award">Winner · 2026</p><h3><a href="https://devpost.com/software/shipyard-own7ys" target="_blank" rel="noopener">Shipyard</a></h3><p class="track"><b>GenAI Genesis</b> Top 2 Team &amp; Best Beginner AI Hack</p><p>Shows a repo's production readiness as a 3D city, then ships it with AI agents.</p></article>
+        <article class="project" data-reveal="up"><p class="award"><span class="grad">Winner · 2026</span></p><h3><a href="https://devpost.com/software/agentropolis" target="_blank" rel="noopener">Agentropolis</a></h3><p class="track"><b>Google</b> Best AI for Community Impact</p><p>Toronto's residents, replaced by AI doppelgängers living out their days on a 3D map of the city.</p></article>
+        <article class="project" data-reveal="up"><p class="award"><span class="grad">Winner · 2026</span></p><h3><a href="https://devpost.com/software/voxel-pnxmlc" target="_blank" rel="noopener">Voxel</a></h3><p class="track"><b>IBM</b> Best AI Hack using IBM Technology</p><p>An AR headset app that turns prompts and diagrams into 3D models students can explore.</p></article>
+        <article class="project" data-reveal="up"><p class="award"><span class="grad">Winner · 2026</span></p><h3><a href="https://devpost.com/software/shipyard-own7ys" target="_blank" rel="noopener">Shipyard</a></h3><p class="track"><b>GenAI Genesis</b> Top 2 Team &amp; Best Beginner AI Hack</p><p>Shows a repo's production readiness as a 3D city, then ships it with AI agents.</p></article>
       </div>
       <div class="project-grid" role="tabpanel" id="panel-sponsors" aria-labelledby="tab-sponsors" hidden>
-        <article class="project"><p class="award">Winner · 2026</p><h3><a href="https://devpost.com/software/omenai" target="_blank" rel="noopener">OmenAI</a></h3><p class="track"><b>TD</b> Best AI Hack to Detect Financial Fraud</p><p>Flags possible insider trading on prediction markets and explains why each wallet looks suspicious.</p></article>
-        <article class="project"><p class="award">Winner · 2026</p><h3><a href="https://devpost.com/software/callio-labs" target="_blank" rel="noopener">Callio Labs</a></h3><p class="track"><b>Sun Life</b> Best Health Care Hack Using Agentic AI</p><p>AI agents that design PCR primers, from genome database search to a cited report.</p></article>
-        <article class="project"><p class="award">Winner · 2026</p><h3><a href="https://devpost.com/software/axiom-vrd28n" target="_blank" rel="noopener">Axiom</a></h3><p class="track"><b>GenAI Genesis</b> Top 2 Team</p><p>An AI coding agent built for game development.</p></article>
+        <article class="project"><p class="award"><span class="grad">Winner · 2026</span></p><h3><a href="https://devpost.com/software/omenai" target="_blank" rel="noopener">OmenAI</a></h3><p class="track"><b>TD</b> Best AI Hack to Detect Financial Fraud</p><p>Flags possible insider trading on prediction markets and explains why each wallet looks suspicious.</p></article>
+        <article class="project"><p class="award"><span class="grad">Winner · 2026</span></p><h3><a href="https://devpost.com/software/callio-labs" target="_blank" rel="noopener">Callio Labs</a></h3><p class="track"><b>Sun Life</b> Best Health Care Hack Using Agentic AI</p><p>AI agents that design PCR primers, from genome database search to a cited report.</p></article>
+        <article class="project"><p class="award"><span class="grad">Winner · 2026</span></p><h3><a href="https://devpost.com/software/axiom-vrd28n" target="_blank" rel="noopener">Axiom</a></h3><p class="track"><b>GenAI Genesis</b> Top 2 Team</p><p>An AI coding agent built for game development.</p></article>
       </div>
       <a class="text-link" href="https://genai-genesis-2026.devpost.com/project-gallery" target="_blank" rel="noopener">See every 2026 project on Devpost →</a>
     </div>
@@ -183,11 +187,12 @@
         <p class="eyebrow">The side quests</p>
         <h2 class="h2" id="quests-title">GenAI Genesis Candids</h2>
         <p>The moments between building and demos that make the weekend memorable.</p>
+        <p class="egg-hint" id="egg-hint"><span>These candids are locked. Find the 3 easter eggs hidden around the site to unlock them.</span> <b><span class="grad"><span id="egg-count">0</span>/3 found</span></b></p>
       </div>
       <ul class="polaroids">
-        <li class="polaroid p1" data-reveal="left"><div class="photo ph-mint"><span>Photo: therapy dogs</span></div><p>Therapy dogs</p></li>
-        <li class="polaroid p2" data-reveal="up"><div class="photo ph-lilac"><span>Photo: poker night</span></div><p>Poker nights</p></li>
-        <li class="polaroid p3" data-reveal="right"><div class="photo ph-peach"><span>Photo: ramen battle</span></div><p>Spicy ramen battles</p></li>
+        <li class="polaroid p1 locked" data-reveal="left" data-egg="dog"><div class="photo ph-mint"><span>Photo: therapy dogs</span><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Therapy dogs</p></li>
+        <li class="polaroid p2 locked" data-reveal="up" data-egg="chip"><div class="photo ph-lilac"><span>Photo: poker night</span><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Poker nights</p></li>
+        <li class="polaroid p3 locked" data-reveal="right" data-egg="ramen"><div class="photo ph-peach"><span>Photo: ramen battle</span><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Spicy ramen battles</p></li>
       </ul>
       <p class="quests-foot">Every great hackathon needs a few stories that don't fit in the submission form :)</p>
     </div>
@@ -196,10 +201,10 @@
   <!-- ============ FAQ ============ -->
   <section class="section faq" id="faq" data-nav="faq" aria-labelledby="faq-title">
     <div class="wrap faq-grid">
-      <div class="section-head" data-reveal="left">
+      <div class="section-head ferry-head" data-reveal="left">
+        <canvas class="ferry-canvas" aria-hidden="true"></canvas>
         <p class="eyebrow">FAQ</p>
         <h2 class="h2" id="faq-title">Questions, answered.</h2>
-        <p class="note">Draft answers. Replace with last year's FAQ doc.</p>
       </div>
       <div class="faq-list" data-reveal="right">
         <details open><summary><span>Who can apply?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Students, researchers, designers, and creators. No prior AI experience needed.</p></div></details>
@@ -240,6 +245,7 @@
   <div class="wrap footer-inner">
     <p class="footer-logo">GenAI<span>Genesis</span></p>
     <p>Toronto, Ontario · © 2027 GenAI Genesis</p>
+    <button class="egg egg-chip" type="button" data-egg="chip" aria-label="Easter egg: a CN Tower poker chip"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="#E2231A"/><circle cx="24" cy="24" r="17.5" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="6.2 7.5"/><circle cx="24" cy="24" r="12.5" fill="#fff"/><path d="M23.4 12.5h1.2l.4 9h1.7l.6 2.4h-1.3l.9 11.6h-5.8l.9-11.6h-1.3l.6-2.4h1.7z" fill="#0D0B16"/></svg></button>
     <ul>
       <li><a href="#about">About</a></li>
       <li><a href="#sponsors">Sponsors</a></li>

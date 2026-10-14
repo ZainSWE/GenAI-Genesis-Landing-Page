@@ -10,11 +10,12 @@
  * - Rendered at reduced resolution; paused while the tab is hidden.
  * - Reduced motion: no drift, but it still answers the cursor.
  * - setWhite(k) fades the whole lamp toward white (used behind the subway map).
+ * - setDark(on) eases the palette to deep purple / teal for dark mode.
  */
 const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
 const FRAG = `
 precision mediump float;
-uniform vec2 uRes; uniform float uTime; uniform vec2 uMouse; uniform float uSpeed; uniform float uGrain; uniform float uWhite;
+uniform vec2 uRes; uniform float uTime; uniform vec2 uMouse; uniform float uSpeed; uniform float uGrain; uniform float uWhite; uniform float uDark;
 uniform vec2 uC[7]; uniform float uR[7];
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -39,19 +40,24 @@ void main(){
   vec3 C4 = vec3(1.0, 0.94, 0.985);     // white-pink
   vec3 C5 = vec3(0.69, 0.66, 0.97);     // periwinkle
 
+  // dark mode: same blobs, deeper purple / magenta / teal
+  C0 = mix(C0, vec3(0.36, 0.12, 0.42), uDark); C1 = mix(C1, vec3(0.22, 0.13, 0.52), uDark);
+  C2 = mix(C2, vec3(0.30, 0.15, 0.46), uDark); C3 = mix(C3, vec3(0.05, 0.33, 0.36), uDark);
+  C4 = mix(C4, vec3(0.12, 0.08, 0.26), uDark); C5 = mix(C5, vec3(0.16, 0.14, 0.48), uDark);
   vec3 col[7];
   col[0] = C0; col[1] = C1; col[2] = C2; col[3] = C3; col[4] = C5; col[5] = C4; col[6] = mix(C3, C0, 0.35);
   float field = 0.0; vec3 acc = vec3(0.0);
   for (int i = 0; i < 7; i++){ vec2 d = q - vec2(uC[i].x * asp, uC[i].y); float w = uR[i]*uR[i] / (dot(d, d) + 0.0008); field += w; acc += col[i] * w; }
   vec3 blob = acc / max(field, 1e-4);
   float lava = smoothstep(0.85, 1.55, field);
-  vec3 base = mix(vec3(0.85, 0.82, 0.985), vec3(0.94, 0.905, 0.985), uv.y + (fbm(p*0.8 + t*0.5) - 0.5) * 0.35);
+  float bk = uv.y + (fbm(p*0.8 + t*0.5) - 0.5) * 0.35;
+  vec3 base = mix(mix(vec3(0.85, 0.82, 0.985), vec3(0.94, 0.905, 0.985), bk), mix(vec3(0.05, 0.03, 0.11), vec3(0.09, 0.05, 0.18), bk), uDark);
   vec3 colr = mix(base, blob, 0.35 + 0.55 * lava);
   colr += (smoothstep(1.4, 1.6, field) - smoothstep(1.6, 2.4, field)) * 0.035;  // soft rim on the blobs
   // white mode: same blobs and cursor response, washed almost to white
-  vec3 pale = mix(vec3(1.0, 0.996, 1.0), blob, 0.14 + 0.14 * lava);
+  vec3 pale = mix(mix(vec3(1.0, 0.996, 1.0), vec3(0.07, 0.05, 0.13), uDark), blob, 0.14 + 0.14 * lava);
   colr = mix(colr, pale, uWhite);
-  colr += (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 311.0) - 0.5) * uGrain * (1.0 - 0.55 * uWhite);
+  colr += (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 311.0) - 0.5) * uGrain * (1.0 - 0.55 * uWhite) * (1.0 - 0.3 * uDark);
   gl_FragColor = vec4(colr, 1.0);
 }`;
 
@@ -75,8 +81,8 @@ export function createBackdrop({ reduced = false } = {}) {
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
   const U = (n) => gl.getUniformLocation(prog, n);
-  const uRes = U("uRes"), uTime = U("uTime"), uMouse = U("uMouse"), uSpeed = U("uSpeed"), uGrain = U("uGrain"), uWhite = U("uWhite"), uC = U("uC"), uR = U("uR");
-  let white = 0;
+  const uRes = U("uRes"), uTime = U("uTime"), uMouse = U("uMouse"), uSpeed = U("uSpeed"), uGrain = U("uGrain"), uWhite = U("uWhite"), uDark = U("uDark"), uC = U("uC"), uR = U("uR");
+  let white = 0, dark = 0, darkTarget = 0;
 
   // Blob simulation (normalised screen space, y up). home(t) = drifting path; d/v = collision offset.
   const BLOBS = [
@@ -153,7 +159,9 @@ export function createBackdrop({ reduced = false } = {}) {
     gl.uniform2f(uMouse, mx, my);
     gl.uniform1f(uSpeed, speed);
     gl.uniform1f(uGrain, 0.085);
+    dark += (darkTarget - dark) * (reduced ? 1 : 0.08);
     gl.uniform1f(uWhite, white);
+    gl.uniform1f(uDark, dark);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   function loop(now) {
@@ -173,5 +181,10 @@ export function createBackdrop({ reduced = false } = {}) {
     white = k;
     if (reduced) draw(0);
   }
-  return { canvas, setWhite };
+  function setDark(on, instant = false) {
+    darkTarget = on ? 1 : 0;
+    if (instant) dark = darkTarget;
+    if (reduced) draw(0);
+  }
+  return { canvas, setWhite, setDark };
 }

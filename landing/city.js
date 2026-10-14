@@ -48,6 +48,7 @@ const BUILDING_TONES = ["#FFFFFF", "#F6F1FF", "#F3DAFF", "#E4FEFF", "#BCFEFF", "
 const LIGHT_W = new THREE.Vector3(1, 0, 0.45).normalize();
 const towerLight = { value: new THREE.Vector2(1, 0) };   // view-space xz, updated per frame
 const worldLight = { value: new THREE.Vector2(LIGHT_W.x, LIGHT_W.z) };
+const cityNight = { value: 0 };   // dark mode: softens the pastel city
 
 /* ------------------------------------------------------------ materials */
 function towerMaterial(lit, shadow, name) {
@@ -81,6 +82,7 @@ function flatMaterial({ color = "#ffffff", windows = false, instanced = false, s
     s.uniforms.uLight = worldLight;
     s.uniforms.uShade = { value: new THREE.Color(shade) };
     s.uniforms.uWin = { value: new THREE.Color("#8F7FE0") };
+    s.uniforms.uNight = cityNight;
     s.vertexShader = s.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vN;\nvarying vec3 vW;\nvarying vec3 vL;")
       .replace("#include <project_vertex>", `#include <project_vertex>
@@ -95,7 +97,7 @@ function flatMaterial({ color = "#ffffff", windows = false, instanced = false, s
     s.fragmentShader = s.fragmentShader
       .replace("#include <common>", `#include <common>
         varying vec3 vN; varying vec3 vW; varying vec3 vL;
-        uniform vec2 uLight; uniform vec3 uShade; uniform vec3 uWin;`)
+        uniform vec2 uLight; uniform vec3 uShade; uniform vec3 uWin; uniform float uNight;`)
       .replace("#include <color_fragment>", `#include <color_fragment>
         vec3 n = normalize(vN);
         vec3 base = diffuseColor.rgb;
@@ -109,6 +111,7 @@ function flatMaterial({ color = "#ffffff", windows = false, instanced = false, s
           float mull = step(0.86, fract(along * 2.2));
           col = mix(col, uWin, 0.16 * max(floorBand, mull));
         }` : ""}
+        col = mix(col, col * vec3(0.66, 0.62, 0.84) + vec3(0.02, 0.01, 0.05), uNight);
         diffuseColor.rgb = col;`);
   };
   m.customProgramCacheKey = () => `city-flat-${windows}-${instanced}-${topMix}`;
@@ -375,6 +378,7 @@ export async function createCity(model, { stats = [] } = {}) {
     Promise.all([document.fonts?.load(`700 200px ${RING_FONT}`), document.fonts?.load(`500 60px ${RING_FONT}`)]),
     new Promise((r) => setTimeout(r, 2500)),
   ]).catch(() => {});
+  const ringPainters = [];
   stats.forEach((st, i) => {
     const PX = 120;                                  // canvas px per world unit
     const numPx = 1.95 * PX, labPx = 0.5 * PX;
@@ -384,16 +388,21 @@ export async function createCity(model, { stats = [] } = {}) {
     const wPx = Math.ceil(Math.max(wn, wl) + PX * 0.6), hPx = Math.ceil(3.0 * PX);
     const cv = document.createElement("canvas"); cv.width = wPx; cv.height = hPx;
     const g = cv.getContext("2d");
-    g.textAlign = "center"; g.textBaseline = "alphabetic";
-    g.font = `700 ${numPx}px ${RING_FONT}`;
-    if (st.accent) { const gr = g.createLinearGradient(wPx / 2 - wn / 2, 0, wPx / 2 + wn / 2, 0); gr.addColorStop(0, "#0FC2D4"); gr.addColorStop(1, "#18D9D2"); g.fillStyle = gr; }
-    else g.fillStyle = "#120F1F";
-    try { g.letterSpacing = `${-0.04 * numPx}px`; } catch (e) {}
-    g.fillText(st.value, wPx / 2, numPx * 0.86);
-    try { g.letterSpacing = "0px"; } catch (e) {}
-    g.font = `500 ${labPx}px ${RING_FONT}`; g.fillStyle = "#3B3552";
-    g.fillText(st.label, wPx / 2, hPx - labPx * 0.45);
+    const paint = (dark) => {                         // redrawn when the page theme changes
+      g.clearRect(0, 0, wPx, hPx);
+      g.textAlign = "center"; g.textBaseline = "alphabetic";
+      g.font = `700 ${numPx}px ${RING_FONT}`;
+      if (st.accent) { const gr = g.createLinearGradient(wPx / 2 - wn / 2, 0, wPx / 2 + wn / 2, 0); gr.addColorStop(0, "#0FC2D4"); gr.addColorStop(1, "#18D9D2"); g.fillStyle = gr; }
+      else g.fillStyle = dark ? "#F1EDFF" : "#120F1F";
+      try { g.letterSpacing = `${-0.04 * numPx}px`; } catch (e) {}
+      g.fillText(st.value, wPx / 2, numPx * 0.86);
+      try { g.letterSpacing = "0px"; } catch (e) {}
+      g.font = `500 ${labPx}px ${RING_FONT}`; g.fillStyle = dark ? "#C2BADE" : "#3B3552";
+      g.fillText(st.label, wPx / 2, hPx - labPx * 0.45);
+    };
+    paint(document.documentElement.dataset.theme === "dark");
     const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    ringPainters.push((dark) => { paint(dark); tex.needsUpdate = true; });
     const arc = wPx / PX / RING_R;                   // angular width of this stat
     const geo = new THREE.CylinderGeometry(RING_R, RING_R, hPx / PX, 48, 1, true, i * STEP - arc / 2, arc);
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
@@ -540,7 +549,8 @@ export async function createCity(model, { stats = [] } = {}) {
     return moving;
   }
 
-  return { scene, camera, pose, hover, tick, ring: ringState, towerModel: gltf.scene };
+  const setTheme = (dark) => { ringPainters.forEach((p) => p(dark)); cityNight.value = dark ? 1 : 0; };
+  return { scene, camera, pose, hover, tick, setTheme, ring: ringState, towerModel: gltf.scene };
 }
 
 /** Original globe flake: soft white with a faint lilac rim so it reads on the pale city. */
