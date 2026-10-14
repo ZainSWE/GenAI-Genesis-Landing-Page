@@ -76,10 +76,35 @@ $("#marquee").innerHTML = SPONSORS.map((s) => logoHTML(s, false)).join("") + SPO
 
 /* --------------------------------------------------------------- nav + UI */
 const nav = $(".nav");
-$("#nav-toggle").addEventListener("click", () => {
-  const open = nav.classList.toggle("open");
+const navWrap = $(".nav-wrap");
+function setMenu(open) {
+  nav.classList.toggle("open", open);
   $("#nav-toggle").setAttribute("aria-expanded", String(open));
-});
+}
+$("#nav-toggle").addEventListener("click", () => setMenu(!nav.classList.contains("open")));
+// tapping outside the open menu closes it
+addEventListener("pointerdown", (e) => { if (nav.classList.contains("open") && !nav.contains(e.target)) setMenu(false); });
+
+// Phones: collapse the bar once past the hero, hide it while scrolling down,
+// peek it back on any upward scroll. Desktop keeps the full bar.
+const phoneQ = matchMedia("(max-width: 760px)");
+let navLastY = scrollY, navAcc = 0;
+function navOnScroll(y) {
+  const d = y - navLastY; navLastY = y;
+  if (!phoneQ.matches) { navWrap.classList.remove("is-hidden", "is-compact"); return; }
+  if (nav.classList.contains("open")) {
+    if (Math.abs(d) > 24) setMenu(false);          // scrolling away closes the menu
+    else { navWrap.classList.remove("is-hidden"); return; }
+  }
+  const pastHero = y > 90;
+  navWrap.classList.toggle("is-compact", pastHero);
+  if (!pastHero || navWrap.contains(document.activeElement)) { navWrap.classList.remove("is-hidden"); navAcc = 0; return; }
+  if (d === 0) return;
+  navAcc = Math.sign(d) === Math.sign(navAcc) ? navAcc + d : d;   // distance travelled in the current direction
+  if (navAcc > 14) navWrap.classList.add("is-hidden");
+  else if (navAcc < -8) navWrap.classList.remove("is-hidden");
+}
+navWrap.addEventListener("focusin", () => navWrap.classList.remove("is-hidden"));
 
 // Tabs (roving tabindex)
 const tabs = $$(".tab");
@@ -182,8 +207,7 @@ $$('a[href^="#"]').forEach((a) => {
     const el = id === "#top" ? document.body : $(id);
     if (!el) return;
     e.preventDefault();
-    nav.classList.remove("open");
-    $("#nav-toggle").setAttribute("aria-expanded", "false");
+    setMenu(false);
     if (lenis) lenis.scrollTo(id === "#top" ? 0 : el, { offset: 0, duration: 1.6 });
     else el.scrollIntoView();
     history.replaceState(null, "", id);
@@ -362,6 +386,7 @@ function frame(now) {
 let finaleState = null, fadedAt = null;
 function update(dt = 0) {
   const y = scrollY, vh = innerHeight;
+  navOnScroll(y);
 
   // Subway line: slide sideways while the section is pinned.
   if (!reduced) {

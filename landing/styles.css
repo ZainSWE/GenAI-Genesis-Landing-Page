@@ -36,6 +36,7 @@
   --maxw: 1180px;
   --shadow: 0 20px 50px -24px rgba(70, 40, 140, 0.35);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring: cubic-bezier(0.5, 1.35, 0.4, 1);   /* slight overshoot: tab capsule + mobile nav */
 
   color-scheme: light;
 }
@@ -162,8 +163,8 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
     position: absolute; top: calc(100% + 8px); left: 0; right: 0; flex-direction: column; gap: 0;
     background: rgba(255, 255, 255, 0.92); border-radius: 24px; padding: 10px 20px;
     border: 1px solid var(--glass-line); box-shadow: var(--shadow);
-    opacity: 0; transform: translateY(-6px); visibility: hidden;
-    transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+    opacity: 0; transform: translateY(-10px) scale(0.98); transform-origin: top right; visibility: hidden;
+    transition: opacity 0.18s var(--ease), transform 0.36s var(--spring), visibility 0.18s;
   }
   .nav.open .nav-links { opacity: 1; transform: none; visibility: visible; }
   .nav-links a { display: block; padding: 12px 0; }
@@ -172,7 +173,21 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
     display: grid; place-content: center; gap: 5px; width: 44px; height: 44px; border-radius: 50%;
     border: 0; background: var(--ink); cursor: pointer;
   }
-  .nav-toggle i { display: block; width: 18px; height: 2px; background: #fff; border-radius: 2px; transition: transform 0.2s; }
+  .nav-toggle i { display: block; width: 18px; height: 2px; background: #fff; border-radius: 2px; transition: transform 0.36s var(--spring); }
+  /* Scroll behaviour on phones: past the hero the bar collapses to just the
+     menu button, slides away while you scroll down and
+     peeks back as soon as you scroll up. Opening the menu restores the full bar. */
+  .nav-wrap { transition: transform 0.55s var(--spring), opacity 0.3s var(--ease); }
+  .nav-wrap.is-hidden { transform: translateY(calc(-100% - 16px)); opacity: 0; }
+  /* right-anchored and allowed to overflow left, so the spring's ~4% overshoot
+     on opening shows (flex-shrink would otherwise clamp it to the container) */
+  .nav-wrap { justify-content: flex-end; }
+  .nav { flex-shrink: 0; width: calc(100vw - 2 * var(--gutter)); margin-left: auto; transition: width 0.36s var(--spring), padding 0.36s var(--spring), background-color 0.25s; }
+  .nav-logo { transition: opacity 0.2s var(--ease) 0.07s; white-space: nowrap; }   /* fades in once the bar has started to grow */
+  .nav-wrap.is-compact .nav { background: rgba(255, 255, 255, 0.86); }   /* over busy content: less see-through */
+  .nav-cta { transition: opacity 0.2s var(--ease) 0.07s; }
+  .nav-wrap.is-compact .nav:not(.open) { width: 62px; padding-left: 8px; gap: 0; }
+  .nav-wrap.is-compact .nav:not(.open) :is(.nav-logo, .nav-cta) { opacity: 0; position: absolute; pointer-events: none; visibility: hidden; transition-delay: 0s; }
   .nav.open .nav-toggle i:first-of-type { transform: translateY(3.5px) rotate(45deg); }
   .nav.open .nav-toggle i:last-of-type { transform: translateY(-3.5px) rotate(-45deg); }
 }
@@ -321,7 +336,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   position: absolute; z-index: 0; top: 6px; left: 0; height: calc(100% - 12px); width: 0; border-radius: var(--r-pill);
   background: var(--ink); box-shadow: 0 8px 20px -10px rgba(13, 11, 22, 0.6);
   transform: translateX(var(--pill-x, 6px)); width: var(--pill-w, 0px);
-  transition: transform 0.55s cubic-bezier(0.5, 1.35, 0.4, 1), width 0.55s cubic-bezier(0.5, 1.35, 0.4, 1);
+  transition: transform 0.55s var(--spring), width 0.55s var(--spring);
 }
 .project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .project {
@@ -483,7 +498,7 @@ html.js.reveal-ready:not(.reduced-motion) .p2[data-reveal="up"]:not(.in) { trans
 @media (prefers-reduced-motion: reduce) {
   .ticker-track, .marquee-track { animation: none !important; }
   [data-tilt] { transform: none !important; }
-  .tab-pill { transition: none; }
+  .tab-pill, .nav-wrap, .nav, .nav-toggle i { transition: none !important; }
   .hero .display em { animation: none; }
   .marquee-viewport { overflow-x: auto; }
   .borders { height: auto; }
