@@ -261,6 +261,31 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .sc-body { font-size: 1.15rem; line-height: 1.58; color: var(--ink-soft); max-width: 40ch; }
 .sc-meta { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 1rem; margin-top: 0.25rem; border-top: 1px solid rgba(13, 11, 22, 0.08); }
 .sc-meta li { font-size: 0.9rem; font-weight: 600; padding: 7px 14px; border-radius: var(--r-pill); background: transparent; border: 1px solid rgba(13, 11, 22, 0.14); color: var(--ink); }
+/* Desktop: the three story chapters share one continuous white strip, and their
+   copy no longer scrolls. Each chapter's text is pinned in the strip and fades
+   (with a slight drift) in and out as its chapter takes over; main.js sets
+   .is-current. Phones keep the normal scrolling layout. */
+@media (min-width: 761px) {
+  html.js .split-text[data-story] {
+    position: fixed; top: 0; left: 0; z-index: 2; width: 50vw; height: 100vh; min-height: 0;
+    display: grid; align-content: center; justify-items: start;
+    padding: 0 max(clamp(28px, 5vw, 80px), calc((50vw - 420px) / 2));   /* same 420px text column, centred in the strip */
+    opacity: 0 !important; visibility: hidden;
+    transform: translateY(16px) !important;
+    transition: opacity 0.35s var(--ease), transform 0.35s var(--ease), visibility 0s linear 0.35s !important;
+    pointer-events: none;
+  }
+  html.js .split-text[data-story].is-current {
+    opacity: 1 !important; visibility: visible; transform: none !important; pointer-events: auto;
+    transition: opacity 0.6s var(--ease) 0.22s, transform 0.7s var(--ease) 0.22s, visibility 0s !important;
+  }
+  html.stats-ring #stats .split-text[data-story] { position: fixed; top: 0; min-height: 0; padding-block: 0; }
+  /* all three story chapters get the same scroll length (stats no longer runs longer) */
+  .split-ch, html.stats-ring #stats { min-height: 200svh; }
+}
+@media (min-width: 761px) and (prefers-reduced-motion: reduce) {
+  html.js .split-text[data-story], html.js .split-text[data-story].is-current { transition: none !important; transform: none !important; }
+}
 /* stats: with WebGL the numbers orbit the globe as a 3D band, so the chapter is
    taller (more scroll for the sweep) and its heading stays pinned meanwhile.
    The flat list stays in the DOM for screen readers and as the fallback. */

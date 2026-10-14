@@ -384,9 +384,26 @@ function frame(now) {
 }
 
 let finaleState = null, fadedAt = null;
+// Story chapters (desktop): the copy is pinned in the white strip and crossfades.
+// The chapter under the middle of the screen is current; none while the strip
+// itself is entering from below or leaving at the end.
+const storyTexts = $$(".split-text[data-story]");
+const storyChs = storyTexts.map((t) => t.closest(".split-ch"));
+let storyCur = -1;
+function updateStory(vh) {
+  const first = storyChs[0].getBoundingClientRect(), last = storyChs[storyChs.length - 1].getBoundingClientRect();
+  let cur = -1;
+  if (first.top < vh * 0.35 && last.bottom > vh * 0.65) {
+    storyChs.forEach((ch, i) => { const r = ch.getBoundingClientRect(); if (r.top <= vh / 2 && r.bottom > vh / 2) cur = i; });
+  }
+  if (cur === storyCur) return;
+  storyCur = cur;
+  storyTexts.forEach((t, i) => { t.classList.toggle("is-current", i === cur); t.setAttribute("aria-hidden", String(i !== cur && phoneQ.matches === false)); });
+}
 function update(dt = 0) {
   const y = scrollY, vh = innerHeight;
   navOnScroll(y);
+  updateStory(vh);
 
   // Subway line: slide sideways while the section is pinned.
   if (!reduced) {
@@ -437,8 +454,9 @@ function update(dt = 0) {
   city.tick(dt);
   // number band: fades in as the stats chapter arrives, sweeps while its heading is pinned, fades as it leaves
   const sr = statsEl.getBoundingClientRect();
-  city.ring.p = clamp(-sr.top / Math.max(1, sr.height - vh * 1.25));
-  city.ring.o = reduced ? 0 : clamp((vh * 0.75 - sr.top) / (vh * 0.5)) * clamp((sr.bottom - vh * 0.45) / (vh * 0.4));
+  // sweep runs while the stats chapter holds the middle of the screen, finishing just before it hands over
+  city.ring.p = clamp((vh * 0.5 - sr.top) / Math.max(1, sr.height - vh * 0.3));
+  city.ring.o = reduced ? 0 : clamp((vh * 0.75 - sr.top) / (vh * 0.5)) * clamp((sr.bottom - vh * 0.3) / (vh * 0.35));
   city.pose(c);
   renderer.render(city.scene, city.camera);
   if (!reduced) { startLoop(); return true; }   // idle spin + snow keep running while the globe is on screen
