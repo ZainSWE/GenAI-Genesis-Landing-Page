@@ -3,7 +3,7 @@
  *
  *  Lenis smooth scroll ─► update() per frame while scrolling
  *     ├─ story chapters  → Toronto city: camera pose, city turning, buildings rising
- *     ├─ borders section → subway line slides sideways while pinned
+ *     ├─ borders section → metro map: scroll moves along the line, stations swell; backdrop turns white
  *     └─ finale          → subway train: windows reveal the team, then the CTA
  *  The city renders on demand (scroll / hover). The train runs a frame loop only
  *  while the finale is on screen, so its wind keeps blowing when you stop scrolling.
@@ -37,10 +37,143 @@ const COUNTRIES = [
   ["JPN", "Japan"], ["AUS", "Australia"],
 ];
 const line = $("#line");
+const stopCode = (i) => `${String(i + 1).padStart(2, "0")} · ${COUNTRIES[i][0]}`;
 line.innerHTML = COUNTRIES.map(([code, name], i) => {
   const terminal = i === 0 || i === COUNTRIES.length - 1;
-  return `<li class="stop${terminal ? " terminal" : ""}"><span class="code">${String(i + 1).padStart(2, "0")} · ${code}</span><span class="dot"></span><span class="name">${name}</span></li>`;
+  return `<li class="stop${terminal ? " terminal" : ""}"><span class="code">${stopCode(i)}</span><span class="dot"></span>`
+    + `<span class="tag" aria-hidden="true"><b>${code}</b><i>${String(i + 1).padStart(2, "0")}</i></span><span class="name">${name}</span></li>`;
 }).join("");
+
+/* Metro map: one winding line that fits the screen. Desktop follows the sketch
+   (in from the left, up under the heading, across, down, across, then up the
+   right side); phones snake back and forth in rows under the heading. Stations
+   are spaced evenly along the path. */
+const metro = $("#metro");
+const metroSvg = metro.querySelector("svg");
+const [metroTrack, metroDone] = metro.querySelectorAll("path");
+const metroLabel = metro.querySelector(".metro-label");
+const stopEls = [...line.children];
+let metroPts = [], metroLen = 0, metroHover = -1, metroShown = -1, metroHeadBottom = 0;
+function roundedPath(pts, r) {
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i - 1], [bx, by] = pts[i], [cx, cy] = pts[i + 1];
+    const l1 = Math.hypot(bx - ax, by - ay), l2 = Math.hypot(cx - bx, cy - by), k = Math.min(r, l1 / 2, l2 / 2);
+    d += ` L${bx - ((bx - ax) / l1) * k},${by - ((by - ay) / l1) * k} Q${bx},${by} ${bx + ((cx - bx) / l2) * k},${by + ((cy - by) / l2) * k}`;
+  }
+  const e = pts[pts.length - 1];
+  return d + ` L${e[0]},${e[1]}`;
+}
+function layoutMetro() {
+  const W = metro.clientWidth, H = metro.clientHeight;
+  if (!W || !H) return;
+  const head = $(".borders-head").getBoundingClientRect(), box = metro.getBoundingClientRect();
+  const hb = head.bottom - box.top;                       // heading bottom inside the map
+  metroHeadBottom = hb;
+  const gx = Math.max(24, Math.min(W * 0.06, (W - 1180) / 2 + 40));
+  let pts;
+  if (W > 760) {
+    const yB = hb + Math.max(84, H * 0.1), yA = Math.min(H - 150, yB + H * 0.15), yC = H - 110;
+    const x1 = gx, x2 = W * 0.56, x3 = W - Math.max(80, gx + 40);
+    pts = [[-30, yA], [x1, yA], [x1, yB], [x2, yB], [x2, yC], [x3, yC], [x3, Math.max(96, H * 0.12)]];
+  } else {
+    const top = hb + 40, bottom = H - 108, rows = 4, gap = (bottom - top) / (rows - 1);
+    const xl = 26, xr = W - 26;
+    pts = [[-30, top]];
+    for (let r = 0; r < rows; r++) {
+      const y = top + r * gap, toRight = r % 2 === 0;
+      pts.push([toRight ? xr : xl, y]);
+      if (r < rows - 1) pts.push([toRight ? xr : xl, y + gap]);
+    }
+  }
+  const d = roundedPath(pts, 26);
+  metroSvg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  metroTrack.setAttribute("d", d); metroDone.setAttribute("d", d);
+  metroLen = metroTrack.getTotalLength();
+  metroDone.style.strokeDasharray = `${metroLen} ${metroLen}`;
+  const n = stopEls.length, start = metroLen * 0.03, end = metroLen * 0.97;
+  let along = (i) => start + ((end - start) * i) / (n - 1);
+  {
+    // Stations go on the straight stretches only, kept clear of every corner so the
+    // stops either side of a bend (and their tags) get room. Phones use the
+    // horizontal rows only; the tight U-turns stay bare.
+    const phone = W <= 760, clear = phone ? 10 : 36;
+    const straight = [];                                 // [from, to] path lengths of straight stretches
+    let from = -1, prev = metroTrack.getPointAtLength(0);
+    for (let s = 2; s <= metroLen; s += 2) {
+      const pt = metroTrack.getPointAtLength(s);
+      const horiz = Math.abs(pt.y - prev.y) < 0.01, vert = Math.abs(pt.x - prev.x) < 0.01;
+      const flat = phone ? horiz : horiz || vert;
+      if (flat && from < 0) from = s - 2;
+      if ((!flat || s + 2 > metroLen) && from >= 0) { straight.push([from, s]); from = -1; }
+      prev = pt;
+    }
+    // trim each stretch: the line's start comes on screen first, its end stops short of
+    // the top, and every bend gets `clear` px of bare track on both sides (less on short stretches)
+    const runs = [];
+    straight.forEach(([a, b], k) => {
+      const len = b - a, cap = Math.max(0, (len - 12) / 2);
+      const t0 = k === 0 ? 60 : Math.min(clear, cap), t1 = k === straight.length - 1 ? 30 : Math.min(clear, cap);
+      if (b - t1 > a + t0) runs.push([a + t0, b - t1]);
+    });
+    const total = runs.reduce((t, [a, b]) => t + (b - a), 0);
+    if (runs.length && total > 0) along = (i) => {
+      let d = (total * i) / (n - 1);
+      for (const [a, b] of runs) { if (d <= b - a) return a + d; d -= b - a; }
+      return runs[runs.length - 1][1];
+    };
+  }
+  metroPts = stopEls.map((el, i) => {
+    const at = along(i);
+    const p = metroTrack.getPointAtLength(at), q = metroTrack.getPointAtLength(Math.min(metroLen, at + 4));
+    el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+    const vertical = Math.abs(q.y - p.y) > Math.abs(q.x - p.x);
+    // beside vertical runs: on the right (left only if the run hugs the right screen edge)
+    const side = vertical ? (p.x > W - 70 ? "left" : "right") : "below";
+    el.dataset.side = side;
+    return { x: p.x, y: p.y, at, vertical, side };
+  });
+  metroShown = -1;
+}
+function placeMetroLabel(i) {
+  if (i === metroShown || !metroPts[i]) return;
+  metroShown = i;
+  const p = metroPts[i];
+  metroLabel.querySelector(".name").textContent = COUNTRIES[i][1];
+  const lw = metroLabel.offsetWidth, lh = metroLabel.offsetHeight, W = metro.clientWidth;
+  let x, y;
+  // the name box sits opposite the station's tag: above horizontal runs, across from it on vertical ones
+  if (p.vertical) {
+    x = p.side === "left" ? p.x + 28 : p.x - 28 - lw; y = p.y - lh / 2;
+    if (x < 12 || x + lw > W - 12) { x = Math.min(W - lw - 12, Math.max(12, p.x - lw / 2)); y = p.y - lh - 30; }
+  } else {
+    x = Math.min(W - lw - 12, Math.max(12, p.x - lw / 2)); y = p.y - lh - 26;
+    if (y < metroHeadBottom + 6) y = p.y + 70;           // no room above (under the heading): below, past the tags
+  }
+  metroLabel.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  metroLabel.classList.add("swap");
+  requestAnimationFrame(() => metroLabel.classList.remove("swap"));
+}
+// f: continuous position along the stations (0 … n-1)
+function setMetroProgress(f) {
+  const n = stopEls.length, cur = Math.round(f);
+  stopEls.forEach((el, i) => {
+    const e = Math.max(0, 1 - Math.abs(i - f) / 1.6);
+    el.style.setProperty("--e", (e * e * (3 - 2 * e)).toFixed(3));
+    el.classList.toggle("passed", i < cur);
+    el.classList.toggle("is-active", i === cur);
+  });
+  if (metroLen) {
+    const at = metroPts[Math.min(n - 1, Math.floor(f))]?.at ?? 0, nx = metroPts[Math.min(n - 1, Math.ceil(f))]?.at ?? at;
+    metroDone.style.strokeDashoffset = (metroLen - (at + (nx - at) * (f - Math.floor(f)))).toFixed(1);
+  }
+  placeMetroLabel(metroHover >= 0 ? metroHover : cur);
+}
+stopEls.forEach((el, i) => {
+  const dot = el.querySelector(".dot");
+  dot.addEventListener("pointerenter", () => { metroHover = i; placeMetroLabel(i); });
+  dot.addEventListener("pointerleave", () => { metroHover = -1; requestUpdate(); });
+});
 
 // Team — placeholder names until the 2027 roster is final. Add `photo: "url"` to show a real picture.
 const TEAM = [
@@ -62,14 +195,18 @@ const labelEls = TEAM.map((m) => {
 // Sponsor marquee (white logos). Wordmarks in type are stand-ins until official SVGs are added.
 const SPONSORS = [
   { id: "google", svg: LOGOS.google, name: "Google" },
-  { id: "cohere", svg: LOGOS.cohere, name: "Cohere" },
+  { id: "intuit", svg: LOGOS.intuit, name: "Intuit" },
+  { id: "amd", svg: LOGOS.amd, name: "AMD" },
   { id: "pwc", text: "pwc", name: "PwC" },
   { id: "un", svg: LOGOS.un, text: "United Nations", name: "United Nations" },
-  { id: "cgi", text: "CGI", name: "CGI" },
-  { id: "devpost", svg: LOGOS.devpost, text: "Devpost", name: "Devpost" },
-  { id: "odc", text: "One Degree Cooler", name: "One Degree Cooler" },
-  { id: "hc", text: "Hack Canada", name: "Hack Canada" },
-  { id: "wtm", text: "Women Techmakers", name: "Women Techmakers" },
+  { id: "cohere", svg: LOGOS.cohere, name: "Cohere" },
+  { id: "rbc", text: "RBC", name: "RBC" },
+  { id: "td", text: "TD Bank", name: "TD Bank" },
+  { id: "sunlife", text: "Sun Life", name: "Sun Life" },
+  { id: "shopify", svg: LOGOS.shopify, text: "Shopify", name: "Shopify" },
+  { id: "ibm", svg: LOGOS.ibm, name: "IBM" },
+  { id: "georgia", text: "Georgia", name: "Georgia" },
+  { id: "vector", text: "Vector Institute", name: "Vector Institute" },
 ];
 const logoHTML = (s, hidden) => `<li class="logo l-${s.id}"${hidden ? ' aria-hidden="true"' : ` aria-label="${s.name}"`}>${s.svg || ""}${s.text ? `<span class="wordmark${s.svg ? " light" : ""}">${s.text}</span>` : ""}</li>`;
 $("#marquee").innerHTML = SPONSORS.map((s) => logoHTML(s, false)).join("") + SPONSORS.map((s) => logoHTML(s, true)).join("");
@@ -334,7 +471,6 @@ const borders = $("#borders");
 const finale = $("#apply");
 const statsEl = $("#stats");
 let anchors = [];
-let lineTravel = 0;
 
 function docTop(el) { return el.getBoundingClientRect().top + scrollY; }
 function measure() {
@@ -342,7 +478,7 @@ function measure() {
   anchors = chapters.map((el) => Math.max(0, docTop(el) + (el.offsetHeight - vh) / 2));
   const last = chapters[chapters.length - 1];
   anchors.push(docTop(last) + last.offsetHeight);                      // "exit" pose
-  lineTravel = Math.max(0, line.scrollWidth - $("#line-viewport").clientWidth);
+  layoutMetro();
 }
 
 function chapterIndex(y) {
@@ -405,11 +541,13 @@ function update(dt = 0) {
   navOnScroll(y);
   updateStory(vh);
 
-  // Subway line: slide sideways while the section is pinned.
-  if (!reduced) {
+  // Metro map: progress along the line while the section is pinned; the backdrop
+  // washes to white while the map is on screen.
+  {
     const r = borders.getBoundingClientRect();
-    const p = clamp(-r.top / (r.height - vh));
-    line.style.transform = `translate3d(${(-p * lineTravel).toFixed(1)}px,0,0)`;
+    const p = reduced ? 1 : clamp(-r.top / Math.max(1, r.height - vh));
+    setMetroProgress(p * (stopEls.length - 1));
+    backdrop?.setWhite(clamp((vh * 1.7 - r.top) / (vh * 0.8)) * clamp((r.bottom - vh * 0.15) / (vh * 0.6)));
   }
 
   // Finale copy state (also without WebGL)

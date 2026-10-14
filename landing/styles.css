@@ -240,9 +240,9 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 32vh);
   mask-image: linear-gradient(to bottom, transparent 0, #000 32vh);
 }
-#toronto .white-half {
-  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 32vh);
-  mask-image: linear-gradient(to top, transparent 0, #000 32vh);
+#toronto .white-half {   /* short soft edge: the backdrop is already white here, so it melts into the map */
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 18vh);
+  mask-image: linear-gradient(to top, transparent 0, #000 18vh);
 }
 .white-right .white-half { right: 0; }
 .split-text {
@@ -326,32 +326,61 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .section-head p:not(.eyebrow) { color: var(--ink-soft); }
 
 /* borders / subway line */
-.borders { position: relative; height: 320vh; }
+.borders { position: relative; height: 220vh; }
 .borders-pin {
-  position: sticky; top: 0; height: 100svh; display: flex; flex-direction: column; justify-content: center;
-  overflow: hidden; padding-block: 90px 40px;
+  position: sticky; top: 0; height: 100svh; display: flex; flex-direction: column; justify-content: flex-start;
+  overflow: hidden; padding-block: max(104px, 14vh) 28px;
 }
+.borders-head { position: relative; z-index: 2; }
+.borders-pin .note { position: absolute; z-index: 2; bottom: 18px; left: 0; right: 0; }
 .borders-head { max-width: var(--maxw); }
 .borders-sub { color: var(--ink-soft); max-width: 46ch; }
 .borders-sub b { color: var(--ink); }
-.line-viewport { margin-top: clamp(28px, 6vh, 64px); overflow: hidden; padding-block: 8px 12px; }
-.line {
-  --stop: 128px;
-  position: relative; display: flex; width: max-content; padding-inline: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
-  will-change: transform;
+/* Condensed metro map: the whole line fits on one screen and winds around the
+   heading; scroll moves "the train" along it and the station it reaches swells
+   and shows its name. Geometry is laid out in main.js (layoutMetro). */
+.metro { position: absolute; inset: 0; z-index: 1; }
+.metro-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.metro-svg path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.metro-track { stroke: #5ff0e2; stroke-width: 9; opacity: 0.38; }
+.metro-done { stroke: #3fe9d9; stroke-width: 9; filter: drop-shadow(0 4px 10px rgba(0, 190, 170, 0.35)); }
+.metro .line { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; }
+.stop {
+  --e: 0; position: absolute; left: 0; top: 0; width: 0; height: 0;
 }
-.line::before { /* the track */
-  content: ""; position: absolute; left: 0; right: 0; top: 74px; height: 14px; border-radius: 7px;
-  background: linear-gradient(90deg, var(--mint) 0%, #6af3e4 50%, var(--lilac) 100%);
-  box-shadow: 0 6px 18px -8px rgba(0, 180, 160, 0.8);
+.stop .dot {
+  position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; border: 3.5px solid var(--ink); box-sizing: border-box; cursor: pointer;
+  transform: scale(calc(1 + var(--e) * 0.9)); transition: transform 0.4s var(--spring), background-color 0.3s var(--ease), border-width 0.3s;
 }
-.stop { position: relative; width: var(--stop); flex: none; display: grid; grid-template-rows: 64px 34px auto; justify-items: center; text-align: center; }
-.stop .code { align-self: end; margin-bottom: 8px; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; color: var(--ink-soft); }
-.stop .dot { width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 6px solid var(--ink); position: relative; z-index: 1; margin-top: 3px; }
-.stop:nth-child(5n+1) .dot { width: 34px; height: 34px; margin-top: 0; border-color: var(--ink); background: var(--mint); }
-.stop .name { font-weight: 700; font-size: 0.98rem; line-height: 1.15; padding-inline: 6px; margin-top: 12px; text-wrap: balance; }
-.stop.terminal .name { font-size: 1.1rem; }
-.stop.terminal .dot { background: var(--lilac); }
+.stop.passed .dot { background: #bdfbf4; }
+.stop.terminal .dot { border-width: 4.5px; transform: scale(calc(1.25 + var(--e) * 0.65)); }
+.stop.is-active .dot { background: #fff; border-width: 4.5px; box-shadow: 0 0 0 6px rgba(63, 233, 217, 0.28); }
+/* every station carries a tilted code + number tag beside it (metro-map style);
+   it steps out as the dot swells. Side is set per stop in layoutMetro. */
+.stop .tag {
+  position: absolute; left: 0; top: 0; white-space: nowrap; pointer-events: none;
+  display: flex; align-items: baseline; gap: 4px; font-size: 0.7rem; line-height: 1; color: var(--ink-soft);
+  transform-origin: 0 50%; transition: transform 0.4s var(--spring), color 0.3s var(--ease);
+  --off: calc(15px + var(--e) * 9px);
+}
+.stop .tag b { font-weight: 700; letter-spacing: 0.06em; color: var(--ink); }
+.stop .tag i { font-style: normal; font-size: 0.62rem; font-variant-numeric: tabular-nums; opacity: 0.75; }
+.stop[data-side="below"] .tag { transform: translate(calc(var(--off) * 0.35), var(--off)) rotate(38deg); }
+/* every tag slopes down to the right; tags placed above or to the left are anchored by their end, so they reach in toward the stop */
+.stop[data-side="right"] .tag { transform: translate(var(--off), -4px) rotate(38deg); }
+.stop[data-side="above"] .tag { left: auto; right: 0; transform-origin: 100% 50%; transform: translate(calc(var(--off) * -0.35), calc(var(--off) * -1)) rotate(38deg); }
+.stop[data-side="left"] .tag { left: auto; right: 0; transform-origin: 100% 50%; transform: translate(calc(var(--off) * -1), 4px) rotate(38deg); }
+.stop.is-active .tag b { color: #0f9f95; }
+.stop .code, .stop .name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.metro-label {
+  position: absolute; left: 0; top: 0; z-index: 3; margin: 0; pointer-events: none; white-space: nowrap;
+  display: grid; gap: 1px; padding: 8px 14px 9px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92); box-shadow: 0 12px 30px -16px rgba(70, 40, 140, 0.45); border: 1px solid rgba(13, 11, 22, 0.06);
+  transition: transform 0.45s var(--spring), opacity 0.25s var(--ease);
+}
+.metro-label .name { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+.metro-label.swap { opacity: 0.35; }
 
 /* project cards */
 .tabs { position: relative; display: inline-flex; gap: 6px; padding: 6px; border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--glass-line); margin-bottom: 1.8rem; }
@@ -377,6 +406,11 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .project { isolation: isolate; }
 .award { display: inline-block; justify-self: start; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; background: var(--ink); color: var(--mint); padding: 6px 10px; border-radius: var(--r-pill); }
 .project h3 { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; }
+.project h3 a { color: inherit; text-decoration: none; }
+.project h3 a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+/* the track / sponsor prize each project won */
+.project > p.track { font-size: 0.86rem; font-weight: 500; line-height: 1.35; color: var(--ink-soft); margin-top: -4px; }
+.project > p.track b { color: #0f9f95; font-weight: 700; margin-right: 2px; }
 .text-link { display: inline-block; margin-top: 1.6rem; font-weight: 700; text-decoration-color: var(--mint-deep); text-underline-offset: 4px; }
 
 /* side quests */
@@ -426,6 +460,12 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .logo .wordmark.light { font-weight: 500; }
 .logo.l-pwc .wordmark { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.04em; text-transform: lowercase; }
 .logo.l-cgi .wordmark { font-size: 1.9rem; font-weight: 800; letter-spacing: 0.02em; }
+.logo.l-intuit svg { height: 20px; }
+.logo.l-amd svg { height: 24px; }
+.logo.l-ibm svg { height: 30px; }
+.logo.l-shopify svg { height: 34px; }
+.logo.l-shopify .wordmark { font-weight: 700; }
+.logo.l-rbc .wordmark, .logo.l-td .wordmark { font-size: 1.8rem; font-weight: 800; letter-spacing: 0.01em; }
 
 /* finale: crew on the subway, then CTA */
 .finale { position: relative; height: 520vh; }
@@ -512,7 +552,6 @@ html.js.reveal-ready:not(.reduced-motion) .p2[data-reveal="up"]:not(.in) { trans
   .stat span { font-size: 0.95rem; }
   .polaroids { grid-template-columns: minmax(0, 1fr); max-width: 360px; margin-inline: auto; gap: 28px; }
   .p2 { translate: 0; }
-  .line { --stop: 104px; }
   .finale-copy { max-width: none; right: var(--gutter); }
   .crew-label { font-size: 0.72rem; padding: 4px 9px; }
   .crew-label b { font-size: 0.78rem; }
@@ -527,12 +566,11 @@ html.js.reveal-ready:not(.reduced-motion) .p2[data-reveal="up"]:not(.in) { trans
   .hero .display em { animation: none; }
   .marquee-viewport { overflow-x: auto; }
   .borders { height: auto; }
-  .borders-pin { position: relative; height: auto; padding-block: clamp(80px, 12vw, 150px); }
-  .line-viewport { overflow-x: auto; }
+  .borders-pin { position: relative; }
+  .stop .dot, .stop .tag, .metro-label { transition: none; }
   .finale { height: auto; }
   .finale-pin { position: relative; height: 100svh; }
   .btn:hover, .btn:active { transform: none; }
 }
 html.reduced-motion .borders { height: auto; }
-html.reduced-motion .borders-pin { position: relative; height: auto; }
-html.reduced-motion .line-viewport { overflow-x: auto; }
+html.reduced-motion .borders-pin { position: relative; }

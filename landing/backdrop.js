@@ -9,11 +9,12 @@
  *   back, so collisions read as liquid instead of fixed anchors.
  * - Rendered at reduced resolution; paused while the tab is hidden.
  * - Reduced motion: no drift, but it still answers the cursor.
+ * - setWhite(k) fades the whole lamp toward white (used behind the subway map).
  */
 const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
 const FRAG = `
 precision mediump float;
-uniform vec2 uRes; uniform float uTime; uniform vec2 uMouse; uniform float uSpeed; uniform float uGrain;
+uniform vec2 uRes; uniform float uTime; uniform vec2 uMouse; uniform float uSpeed; uniform float uGrain; uniform float uWhite;
 uniform vec2 uC[7]; uniform float uR[7];
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -47,7 +48,10 @@ void main(){
   vec3 base = mix(vec3(0.85, 0.82, 0.985), vec3(0.94, 0.905, 0.985), uv.y + (fbm(p*0.8 + t*0.5) - 0.5) * 0.35);
   vec3 colr = mix(base, blob, 0.35 + 0.55 * lava);
   colr += (smoothstep(1.4, 1.6, field) - smoothstep(1.6, 2.4, field)) * 0.035;  // soft rim on the blobs
-  colr += (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 311.0) - 0.5) * uGrain;
+  // white mode: same blobs and cursor response, washed almost to white
+  vec3 pale = mix(vec3(1.0, 0.996, 1.0), blob, 0.14 + 0.14 * lava);
+  colr = mix(colr, pale, uWhite);
+  colr += (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 311.0) - 0.5) * uGrain * (1.0 - 0.55 * uWhite);
   gl_FragColor = vec4(colr, 1.0);
 }`;
 
@@ -71,7 +75,8 @@ export function createBackdrop({ reduced = false } = {}) {
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
   const U = (n) => gl.getUniformLocation(prog, n);
-  const uRes = U("uRes"), uTime = U("uTime"), uMouse = U("uMouse"), uSpeed = U("uSpeed"), uGrain = U("uGrain"), uC = U("uC"), uR = U("uR");
+  const uRes = U("uRes"), uTime = U("uTime"), uMouse = U("uMouse"), uSpeed = U("uSpeed"), uGrain = U("uGrain"), uWhite = U("uWhite"), uC = U("uC"), uR = U("uR");
+  let white = 0;
 
   // Blob simulation (normalised screen space, y up). home(t) = drifting path; d/v = collision offset.
   const BLOBS = [
@@ -148,6 +153,7 @@ export function createBackdrop({ reduced = false } = {}) {
     gl.uniform2f(uMouse, mx, my);
     gl.uniform1f(uSpeed, speed);
     gl.uniform1f(uGrain, 0.085);
+    gl.uniform1f(uWhite, white);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   function loop(now) {
@@ -161,5 +167,11 @@ export function createBackdrop({ reduced = false } = {}) {
     if (running) requestAnimationFrame(loop);
   });
   if (reduced) draw(0); else requestAnimationFrame(loop);
-  return { canvas };
+  function setWhite(k) {
+    k = Math.min(1, Math.max(0, k));
+    if (Math.abs(k - white) < 0.002) return;
+    white = k;
+    if (reduced) draw(0);
+  }
+  return { canvas, setWhite };
 }
