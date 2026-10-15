@@ -507,7 +507,8 @@ export async function createCity(model, { stats = [] } = {}) {
     domeFront.getWorldPosition(globeCentre);
     const gDist = camera.position.distanceTo(globeCentre);
     const k = Math.min(1, Math.max(0, (gDist - (GR + 1.0)) / 6.0));
-    domeU.uOpacity.value = k * k * (3 - 2 * k);
+    const enter = Math.min(1, Math.max(0, (c - 0.12) / 0.38));   // only once you scroll out of the hero
+    domeU.uOpacity.value = k * k * (3 - 2 * k) * enter * enter * (3 - 2 * enter);
     snowMat.opacity = domeU.uOpacity.value;
     snow.visible = domeFront.visible = domeBack.visible = domeU.uOpacity.value > 0.002;
     if (snow.visible) updateSnow(c);

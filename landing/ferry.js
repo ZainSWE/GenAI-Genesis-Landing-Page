@@ -1,19 +1,22 @@
 /**
- * FAQ ferry: a Toronto Island ferry turning slowly on the lake, drawn in the
- * same flat pastel style as the snow globe and the streetcar. Double-ended
- * white hull with a teal rub rail, two cabin decks with rows of windows, an
- * open upper deck with benches and stanchion railings, a pilot house, lifebuoys
- * and a banded funnel. Smoke rises from the funnel and drifts up behind the FAQ
- * title (the canvas sits under the heading text and fades out at its edges).
- * Click the boat for a toot: a burst of smoke and a quick extra spin.
+ * FAQ ferry: a small, cute Toronto Island ferry bobbing on soft waves, drawn in
+ * the site palette only (white, lilac pale, lilac, mint, aqua pale) with the
+ * same flat shading as the other 3D pieces. Smoke puffs rise from its funnel and
+ * drift up behind the FAQ title (the canvas sits under the heading text and its
+ * edges fade out). Click the boat for a toot: a burst of smoke and a quick spin.
+ *
+ * Every part is either embedded in the one below it or sits clear of it, so no
+ * two visible faces share a plane (no z-fighting).
  *
  * Own small renderer; it only draws while the FAQ is on screen. Reduced motion:
- * one still frame. setTheme(dark) dims the boat and tints the smoke for night.
+ * one still frame. setTheme(dark) dims the boat and moves the water to the
+ * night palette.
  */
 import * as THREE from "three";
 
 const LIGHT = new THREE.Vector2(-0.75, 0.66).normalize();
 const nightU = { value: 0 };
+const PAL = { white: "#FFFFFF", lilacPale: "#F3DAFF", lilac: "#E09DFF", mint: "#00FFDD", aqua: "#BCFEFF", aquaPale: "#E4FEFF" };
 
 function flat(color, shade, topMix = 0.45) {
   const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
@@ -23,73 +26,106 @@ function flat(color, shade, topMix = 0.45) {
     s.uniforms.uNight = nightU;
     s.vertexShader = s.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vN;")
-      .replace("#include <project_vertex>", `#include <project_vertex>
-        #ifdef USE_INSTANCING
-          vN = normalize(mat3(modelMatrix * instanceMatrix) * normal);
-        #else
-          vN = normalize(mat3(modelMatrix) * normal);
-        #endif`);
+      .replace("#include <project_vertex>", "#include <project_vertex>\nvN = normalize(mat3(modelMatrix) * normal);");
     s.fragmentShader = s.fragmentShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vN;\nuniform vec2 uLight; uniform vec3 uShade; uniform float uNight;")
       .replace("#include <color_fragment>", `#include <color_fragment>
         vec3 n = normalize(vN);
         vec3 b = diffuseColor.rgb;
-        float lit = smoothstep(-0.18, 0.18, dot(n.xz, uLight));
+        float lit = smoothstep(-0.2, 0.2, dot(n.xz, uLight));
         vec3 c = mix(mix(b, uShade, 0.6), b, lit);
         if (n.y > 0.6) c = mix(b, vec3(1.0), ${topMix.toFixed(2)});
-        if (n.y < -0.6) c = mix(uShade, vec3(0.0), 0.1);
-        c = mix(c, c * vec3(0.56, 0.52, 0.76) + vec3(0.02, 0.01, 0.05), uNight);
+        if (n.y < -0.6) c = uShade;
+        c = mix(c, c * vec3(0.58, 0.54, 0.78) + vec3(0.02, 0.01, 0.05), uNight);
+        c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.07;   // film grain
         diffuseColor.rgb = c;`);
   };
   m.customProgramCacheKey = () => "ferry-flat-" + topMix;
   return m;
 }
 
-/** Stadium outline (round both ends: the island ferries are double-ended). Shape (x, y) → world (x, -z). */
-function stadium(len, wid) {
-  const s = new THREE.Shape(), r = wid / 2, hl = len / 2 - r;
-  s.moveTo(-hl, -r); s.lineTo(hl, -r);
-  s.absarc(hl, 0, r, -Math.PI / 2, Math.PI / 2, false);
-  s.lineTo(-hl, r);
-  s.absarc(-hl, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+/** Rounded-rectangle outline in the xz plane (shape (x, y) → world (x, -z)). */
+function pill(len, wid, r = wid / 2) {
+  const s = new THREE.Shape(), hl = len / 2, hw = wid / 2;
+  r = Math.min(r, hw, hl);
+  s.moveTo(-hl + r, -hw); s.lineTo(hl - r, -hw); s.quadraticCurveTo(hl, -hw, hl, -hw + r);
+  s.lineTo(hl, hw - r); s.quadraticCurveTo(hl, hw, hl - r, hw);
+  s.lineTo(-hl + r, hw); s.quadraticCurveTo(-hl, hw, -hl, hw - r);
+  s.lineTo(-hl, -hw + r); s.quadraticCurveTo(-hl, -hw, -hl + r, -hw);
   return s;
 }
-function slab(shape, h, mat, bevel = 0.03) {
-  const g = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 3, curveSegments: 32 });
+function block(shape, h, mat, bevel = 0.06) {
+  const g = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 4, curveSegments: 24 });
   g.rotateX(-Math.PI / 2);
+  g.translate(0, bevel, 0);                     // base of the bevel at y = 0
   return new THREE.Mesh(g, mat);
-}
-/** Points around a stadium outline at a given spacing, with outward normals, as world-space (x, z). */
-function around(len, wid, step, straightOnly = false) {
-  const out = [], r = wid / 2, hl = len / 2 - r;
-  const per = 4 * hl + Math.PI * wid, n = Math.max(4, Math.round(per / step));
-  for (let i = 0; i < n; i++) {
-    let d = (i / n) * per, x, z, nx, nz;
-    if (d < 2 * hl) { x = -hl + d; z = r; nx = 0; nz = 1; }                       // near side
-    else if ((d -= 2 * hl) < Math.PI * r) { const a = Math.PI / 2 - d / r; x = hl + Math.cos(a) * r; z = Math.sin(a) * r; nx = Math.cos(a); nz = Math.sin(a); }
-    else if ((d -= Math.PI * r) < 2 * hl) { x = hl - d; z = -r; nx = 0; nz = -1; }  // far side
-    else { d -= 2 * hl; const a = -Math.PI / 2 - d / r; x = -hl + Math.cos(a) * r; z = Math.sin(a) * r; nx = Math.cos(a); nz = Math.sin(a); }
-    if (straightOnly && Math.abs(nx) > 0.05) continue;
-    out.push({ x, z, nx, nz });
-  }
-  return out;
 }
 
 function puffTexture() {
   const c = document.createElement("canvas"); c.width = c.height = 128;
   const g = c.getContext("2d");
   const grd = g.createRadialGradient(64, 64, 4, 64, 64, 62);
-  grd.addColorStop(0, "rgba(255,255,255,1)"); grd.addColorStop(0.5, "rgba(236,230,252,0.8)"); grd.addColorStop(0.8, "rgba(200,188,240,0.35)"); grd.addColorStop(1, "rgba(200,188,240,0)");
+  grd.addColorStop(0, "rgba(255,255,255,1)"); grd.addColorStop(0.5, "rgba(243,218,255,0.8)"); grd.addColorStop(0.8, "rgba(224,157,255,0.3)"); grd.addColorStop(1, "rgba(224,157,255,0)");
   g.fillStyle = grd; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
-export function createFerry(canvas, { reduced = false, weak = false } = {}) {
+/* Waves: the lava-lamp palette, swelling gently and fading out into the page at the edges. */
+const WAVE_GLSL = `
+  float wave(vec2 p, float t) {
+    return 0.16 * sin(p.x * 0.9 + t * 1.1) + 0.11 * sin(p.y * 1.3 - t * 0.9 + p.x * 0.4)
+         + 0.06 * sin((p.x + p.y) * 2.1 + t * 1.7);
+  }`;
+function waveHeight(x, z, t) {
+  return 0.16 * Math.sin(x * 0.9 + t * 1.1) + 0.11 * Math.sin(z * 1.3 - t * 0.9 + x * 0.4) + 0.06 * Math.sin((x + z) * 2.1 + t * 1.7);
+}
+function waterMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: true,
+    uniforms: { uT: { value: 0 }, uNight: nightU },
+    vertexShader: `${WAVE_GLSL}
+      uniform float uT; varying vec3 vP; varying vec3 vNrm; varying float vH;
+      void main() {
+        vec3 p = position;
+        float h = wave(p.xz, uT);
+        float e = 0.05;
+        float hx = wave(p.xz + vec2(e, 0.0), uT), hz = wave(p.xz + vec2(0.0, e), uT);
+        vNrm = normalize(vec3(-(hx - h) / e, 1.0, -(hz - h) / e));
+        p.y += h; vP = p; vH = h;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: `
+      uniform float uNight; uniform float uT; varying vec3 vP; varying vec3 vNrm; varying float vH;
+      void main() {
+        // lava-lamp colours by day: pink, violet, lilac, mint mist; deep purple / teal at night
+        vec3 pink = mix(vec3(0.965, 0.77, 0.925), vec3(0.36, 0.12, 0.42), uNight);
+        vec3 violet = mix(vec3(0.725, 0.59, 0.96), vec3(0.22, 0.13, 0.52), uNight);
+        vec3 lilac = mix(vec3(0.906, 0.776, 0.969), vec3(0.30, 0.15, 0.46), uNight);
+        vec3 mint = mix(vec3(0.80, 0.98, 0.95), vec3(0.05, 0.33, 0.36), uNight);
+        float band = 0.5 + 0.5 * sin(vP.x * 0.55 + vP.z * 0.8);
+        vec3 col = mix(mix(violet, pink, band), mix(mint, lilac, band), smoothstep(-2.0, 2.5, vP.z));
+        float lit = clamp(dot(vNrm, normalize(vec3(-0.5, 0.9, 0.4))), 0.0, 1.0);
+        col = mix(col * mix(0.72, 0.62, uNight), col * 1.04, lit);              // troughs a shade deeper
+        // drifting wave lines, like a toy-boat illustration
+        float wl = fract(vP.z * 0.75 + 0.32 * sin(vP.x * 0.7 + uT * 0.8) - uT * 0.12);
+        float line = 1.0 - smoothstep(0.02, 0.07, abs(wl - 0.5));
+        col = mix(col, vec3(1.0), line * (0.5 - 0.25 * uNight));
+        col = mix(col, vec3(1.0), smoothstep(0.17, 0.3, vH) * (0.55 - 0.35 * uNight));   // soft crests
+        // fade into the page: an oval that melts away at the sides and the back
+        float r = length(vP.xz * vec2(0.2, 0.36));
+        float a = 1.0 - smoothstep(0.5, 1.0, r);
+        col += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.06;   // film grain
+        gl_FragColor = vec4(col, a * 0.92);   // colours are already display values (like the lava lamp)
+      }`,
+  });
+}
+
+export function createFerry(canvas, { reduced = false, weak = false, coarse = false } = {}) {
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !weak, alpha: true, powerPreference: "low-power" });
   } catch (e) { return null; }
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, weak ? 1 : 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, weak ? 1 : coarse ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
@@ -98,125 +134,77 @@ export function createFerry(canvas, { reduced = false, weak = false } = {}) {
   /* ------------------------------------------------------------ the boat */
   const boat = new THREE.Group();
   const M = {
-    hull: flat("#FFFFFF", "#CFC3F3", 0.5),
-    boot: flat("#7B6BC9", "#54479E", 0.2),        // waterline band
-    teal: flat("#18D9D2", "#0E9F9A", 0.4),
-    deck: flat("#F3DAFF", "#C9A6F5", 0.6),
-    wall: flat("#FFFFFF", "#DCD2F8", 0.6),
-    glass: flat("#4A3E8C", "#30276A", 0.2),
-    rail: flat("#3EE07E", "#22CBBD", 0.3),
-    post: flat("#FFFFFF", "#CFC3F3", 0.4),
-    bench: flat("#BCFEFF", "#7FE3DA", 0.5),
-    buoy: flat("#FF7A8A", "#D9536A", 0.4),
-    cap: flat("#1B2A33", "#0F1A20", 0.2),
-    flag: flat("#E09DFF", "#B56CF0", 0.3),
+    hull: flat(PAL.white, "#D9C8F5", 0.5),
+    stripe: flat(PAL.mint, "#16C9B5", 0.4),
+    keel: flat(PAL.lilac, "#B77BE8", 0.3),
+    cabin: flat(PAL.lilacPale, "#DDB6F3", 0.6),
+    roof: flat(PAL.lilac, "#B77BE8", 0.5),
+    house: flat(PAL.white, "#DCCBF6", 0.6),
+    port: flat(PAL.aqua, "#86E3E6", 0.5),
+    portRim: flat(PAL.white, "#D9C8F5", 0.5),
+    funnel: flat(PAL.mint, "#16C9B5", 0.35),
+    band: flat(PAL.white, "#D9C8F5", 0.4),
+    top: flat(PAL.lilac, "#B77BE8", 0.4),
+    flag: flat(PAL.lilac, "#B77BE8", 0.3),
   };
-  const L = 6.4, B = 1.9;                                   // length, beam
-
-  // hull: tapered toward the keel, dark waterline band, teal rub rail at the gunwale
-  const hullGeo = new THREE.ExtrudeGeometry(stadium(L, B), { depth: 0.62, bevelEnabled: true, bevelSize: 0.06, bevelThickness: 0.06, bevelSegments: 3, curveSegments: 40 });
-  hullGeo.rotateX(-Math.PI / 2);
-  { const p = hullGeo.attributes.position;
-    for (let i = 0; i < p.count; i++) { const y = p.getY(i), k = 0.86 + 0.14 * THREE.MathUtils.smoothstep(y, -0.06, 0.4); p.setX(i, p.getX(i) * (0.97 + 0.03 * k)); p.setZ(i, p.getZ(i) * k); }
-    hullGeo.computeVertexNormals(); }
-  const hull = new THREE.Mesh(hullGeo, M.hull); hull.position.y = -0.1; boat.add(hull);
-  const boot = slab(stadium(L * 0.985, B * 0.89), 0.14, M.boot, 0.02); boot.position.y = -0.12; boat.add(boot);
-  const rub = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(
-    around(L + 0.1, B + 0.1, 0.08).map((q) => new THREE.Vector3(q.x, 0, q.z)), true), 220, 0.055, 8, true), M.teal);
-  rub.position.y = 0.56; boat.add(rub);
-  const main = slab(stadium(L - 0.08, B - 0.08), 0.04, M.deck, 0); main.position.y = 0.58; boat.add(main);
-
-  // cabins: white walls with a row of separate window panes all round
-  const paneGeo = new THREE.BoxGeometry(0.2, 1, 0.025);
-  const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), s4 = new THREE.Vector3(), p4 = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
-  function cabin(len, wid, y, h, x = 0, paneH = 0.24, step = 0.3) {
-    const c = slab(stadium(len, wid), h, M.wall, 0.025); c.position.set(x, y, 0); boat.add(c);
-    const pts = around(len + 0.06, wid + 0.06, step);
-    const inst = new THREE.InstancedMesh(paneGeo, M.glass, pts.length);
-    pts.forEach((q, i) => {
-      q4.setFromAxisAngle(up, Math.atan2(q.nx, q.nz));
-      p4.set(x + q.x, y + h * 0.56, q.z); s4.set(1, paneH, 1);
-      inst.setMatrixAt(i, m4.compose(p4, q4, s4));
-    });
-    boat.add(inst);
-    return c;
+  const L = 4.4, B = 1.9;
+  // chunky rounded hull: lilac keel band, white body, mint stripe set into the top
+  const keel = block(pill(L * 0.9, B * 0.82), 0.28, M.keel, 0.1); keel.position.y = -0.36; boat.add(keel);
+  const hull = block(pill(L, B), 0.5, M.hull, 0.12); hull.position.y = -0.2; boat.add(hull);        // overlaps the keel
+  const stripe = block(pill(L + 0.14, B + 0.14), 0.07, M.stripe, 0.04); stripe.position.y = 0.28; boat.add(stripe);
+  // cabin: lilac-pale, sunk into the deck, with round portholes standing just proud of its walls
+  const CL = L - 1.2, CW = B - 0.5, CH = 0.62, cbev = 0.08;
+  const cabin = block(pill(CL, CW, 0.32), CH, M.cabin, cbev); cabin.position.y = 0.36; boat.add(cabin);
+  const portGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.05, 20); portGeo.rotateX(Math.PI / 2);
+  const rimGeo = new THREE.TorusGeometry(0.125, 0.025, 8, 24);
+  const wallZ = CW / 2 + cbev;                                   // outer face of the cabin wall
+  for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
+    const x = -CL / 2 + 0.55 + i * ((CL - 1.1) / 3);
+    const port = new THREE.Mesh(portGeo, M.port); port.position.set(x, 0.36 + cbev + CH * 0.55, side * (wallZ + 0.012)); boat.add(port);
+    const rim = new THREE.Mesh(rimGeo, M.portRim); rim.position.set(x, port.position.y, side * (wallZ + 0.03)); boat.add(rim);
   }
-  // stanchion railing: posts + top rail tube
-  function railing(len, wid, y, x = 0, h = 0.22) {
-    const pts = around(len, wid, 0.22);
-    const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.014, 0.014, h, 5), M.post, pts.length);
-    pts.forEach((q, i) => posts.setMatrixAt(i, m4.makeTranslation(x + q.x, y + h / 2, q.z)));
-    boat.add(posts);
-    const top = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(
-      around(len, wid, 0.08).map((q) => new THREE.Vector3(q.x, 0, q.z)), true), 200, 0.022, 6, true), M.rail);
-    top.position.set(x, y + h, 0); boat.add(top);
-  }
-  railing(L - 0.22, B - 0.22, 0.62);
-  cabin(L - 1.25, B - 0.5, 0.62, 0.62);
-  const deck2 = slab(stadium(L - 0.9, B - 0.28), 0.045, M.deck, 0); deck2.position.y = 1.25; boat.add(deck2);
-  railing(L - 1.05, B - 0.42, 1.29);
-  cabin(L - 3.2, B - 0.82, 1.29, 0.5, 0, 0.18, 0.28);
-  const roof2 = slab(stadium(L - 3.0, B - 0.7), 0.04, M.deck, 0); roof2.position.y = 1.8; boat.add(roof2);
-
-  // open upper deck: benches fore and aft of the cabin
-  const benchGeo = new THREE.BoxGeometry(0.5, 0.08, 0.16);
-  for (const sx of [-1, 1]) for (const z of [-0.42, 0.42]) {
-    const bch = new THREE.Mesh(benchGeo, M.bench); bch.position.set(sx * 2.15, 1.36, z); bch.rotation.y = Math.PI / 2; boat.add(bch);
-  }
-  // pilot house (centred, wraparound windows, overhanging roof)
-  const ph = slab(stadium(1.1, 0.78), 0.36, M.wall, 0.02); ph.position.set(0.25, 1.84, 0); boat.add(ph);
-  const phWin = slab(stadium(1.14, 0.82), 0.14, M.glass, 0); phWin.position.set(0.25, 1.98, 0); boat.add(phWin);
-  const phRoof = slab(stadium(1.3, 0.96), 0.05, M.teal, 0.015); phRoof.position.set(0.25, 2.2, 0); boat.add(phRoof);
-
-  // funnel: tall, teal with a white band and dark cap, just aft of the pilot house
-  const funnel = new THREE.Group(); funnel.position.set(-0.7, 1.82, 0); boat.add(funnel);
-  const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.23, 1.0, 28), M.teal); stack.position.y = 0.5; funnel.add(stack);
-  const fband = new THREE.Mesh(new THREE.CylinderGeometry(0.192, 0.204, 0.16, 28), M.wall); fband.position.y = 0.62; funnel.add(fband);
-  const fcap = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.18, 0.1, 28), M.cap); fcap.position.y = 1.03; funnel.add(fcap);
-  const mouth = new THREE.Object3D(); mouth.position.y = 1.1; funnel.add(mouth);
-
-  // mast with a pennant on the pilot-house roof
-  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.62, 6), M.cap); mast.position.set(0.5, 2.53, 0); boat.add(mast);
-  const fshape = new THREE.Shape(); fshape.moveTo(0, 0); fshape.lineTo(-0.34, -0.07); fshape.lineTo(0, -0.15);
+  // cabin roof (lilac) overhangs a little and sits clear of the cabin top
+  const roof = block(pill(CL + 0.3, CW + 0.3, 0.42), 0.07, M.roof, 0.04); roof.position.y = 0.36 + CH + 2 * cbev + 0.005; boat.add(roof);
+  const roofTop = roof.position.y + 0.07 + 0.08;
+  // pilot house (white) with a mint-tinted window band, its own lilac cap
+  const ph = block(pill(1.0, 0.9, 0.3), 0.42, M.house, 0.06); ph.position.set(0.75, roofTop - 0.04, 0); boat.add(ph);
+  const phWin = block(pill(1.04, 0.94, 0.32), 0.14, M.port, 0.05); phWin.position.set(0.75, roofTop + 0.16, 0); boat.add(phWin);
+  const phCap = block(pill(1.2, 1.08, 0.38), 0.06, M.roof, 0.03); phCap.position.set(0.75, roofTop + 0.5, 0); boat.add(phCap);
+  // funnel: fat mint stack with a white band and lilac lip, leaning back a touch
+  const funnel = new THREE.Group(); funnel.position.set(-0.55, roofTop - 0.04, 0); funnel.rotation.z = 0.1; boat.add(funnel);
+  const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.32, 0.8, 28), M.funnel); stack.position.y = 0.4; funnel.add(stack);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.277, 0.291, 0.13, 28), M.band); band.position.y = 0.5; funnel.add(band);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(0.255, 0.05, 10, 28), M.top); lip.rotation.x = Math.PI / 2; lip.position.y = 0.8; funnel.add(lip);
+  const mouth = new THREE.Object3D(); mouth.position.y = 0.86; funnel.add(mouth);
+  // little mast + pennant on the pilot house
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.5, 8), M.house); mast.position.set(0.95, roofTop + 0.78, 0); boat.add(mast);
+  const fshape = new THREE.Shape(); fshape.moveTo(0, 0); fshape.lineTo(-0.32, -0.07); fshape.lineTo(0, -0.15);
   const flag = new THREE.Mesh(new THREE.ShapeGeometry(fshape), M.flag); flag.material.side = THREE.DoubleSide;
-  flag.position.set(0.5, 2.82, 0); boat.add(flag);
-
-  // lifebuoys on the lower cabin walls
-  const buoyGeo = new THREE.TorusGeometry(0.075, 0.026, 8, 20);
-  for (const [x, z] of [[-1.6, 1], [1.6, 1], [-1.6, -1], [1.6, -1]]) {
-    const bu = new THREE.Mesh(buoyGeo, M.buoy); bu.position.set(x, 0.92, z * ((B - 0.5) / 2 + 0.035)); boat.add(bu);
-  }
+  flag.position.set(0.95, roofTop + 1.02, 0); boat.add(flag);
   scene.add(boat);
 
-  /* ------------------------------------------------------------ the lake */
-  const waterMat = flat("#BCFEFF", "#8FE9E2", 0.25); waterMat.transparent = true; waterMat.opacity = 0.7;
-  const water = new THREE.Mesh(new THREE.CircleGeometry(4.6, 72), waterMat); water.rotation.x = -Math.PI / 2; water.scale.set(1, 0.62, 1); water.position.y = -0.02; scene.add(water);
-  const rippleMat = new THREE.MeshBasicMaterial({ color: "#FFFFFF", transparent: true, opacity: 0.6, depthWrite: false });
-  let rippleK = 1;
-  const ripples = [0, 1, 2].map((i) => {
-    const r = new THREE.Mesh(new THREE.RingGeometry(0.97, 1, 80), rippleMat.clone());
-    r.rotation.x = -Math.PI / 2; r.position.y = 0.0; r.userData.ph = i / 3; scene.add(r); return r;
-  });
+  /* ------------------------------------------------------------ the waves */
+  const waterMat = waterMaterial();
+  const waveGeo = new THREE.PlaneGeometry(16, 10, weak ? 80 : 140, weak ? 50 : 90); waveGeo.rotateX(-Math.PI / 2);
+  const water = new THREE.Mesh(waveGeo, waterMat); water.renderOrder = 2; scene.add(water);
 
   /* ------------------------------------------------------------ smoke */
   const puffTex = puffTexture();
   const puffs = [];
-  const MAX = 64;
-  for (let i = 0; i < MAX; i++) {
+  for (let i = 0; i < 64; i++) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: "#FFFFFF", transparent: true, opacity: 0, depthWrite: false }));
     sp.visible = false; sp.renderOrder = 5; scene.add(sp);
     puffs.push({ sp, age: 0, life: 1, v: new THREE.Vector3(), s0: 0.3, s1: 1.5 });
   }
-  let nextPuff = 0, smokeTint = new THREE.Color("#EEE8FF"), smokeK = 0.62;
+  let nextPuff = 0, smokeTint = new THREE.Color("#FFFFFF"), smokeK = 0.6;
   const mouthPos = new THREE.Vector3();
   function emit(strength = 1) {
     const p = puffs.find((q) => !q.sp.visible); if (!p) return;
     mouth.getWorldPosition(mouthPos);
     p.sp.position.copy(mouthPos);
     p.age = 0; p.life = 7 + Math.random() * 2.5;
-    // rise, and drift up-left toward the FAQ title
-    p.v.set(-0.28 - Math.random() * 0.22, 0.95 + Math.random() * 0.5 * strength, (Math.random() - 0.5) * 0.25);
-    p.s0 = 0.32 + Math.random() * 0.12; p.s1 = (1.9 + Math.random() * 0.9) * (0.8 + 0.3 * strength);
+    p.v.set(-0.28 - Math.random() * 0.22, 0.95 + Math.random() * 0.5 * strength, (Math.random() - 0.5) * 0.25);   // up and left, toward the title
+    p.s0 = 0.34 + Math.random() * 0.12; p.s1 = (1.9 + Math.random() * 0.9) * (0.8 + 0.3 * strength);
     p.sp.visible = true; p.sp.material.color.copy(smokeTint);
   }
 
@@ -226,14 +214,14 @@ export function createFerry(canvas, { reduced = false, weak = false } = {}) {
     W = Math.max(1, canvas.clientWidth); H = Math.max(1, canvas.clientHeight);
     renderer.setSize(W, H, false);
     const colW = canvas.parentElement?.clientWidth || W;    // the canvas overhangs the column for smoke room
-    boatCenterY = H - Math.min(140, H * 0.26);
-    const ppu = Math.min((colW * 1.0) / 7.4, 340 / 3.6);
+    boatCenterY = H - Math.min(150, H * 0.28);
+    const ppu = Math.min((colW * 0.95) / 6.0, 330 / 3.4);
     const F = 2 * Math.max(boatCenterY, H - boatCenterY);
     const fov = THREE.MathUtils.degToRad(camera.fov);
     const d = F / (2 * Math.tan(fov / 2) * ppu);
-    const el = THREE.MathUtils.degToRad(21);
-    camera.position.set(0, 0.9 + Math.sin(el) * d, Math.cos(el) * d);
-    camera.lookAt(0, 0.9, 0);
+    const el = THREE.MathUtils.degToRad(27);
+    camera.position.set(0, 0.7 + Math.sin(el) * d, Math.cos(el) * d);
+    camera.lookAt(0, 0.7, 0);
     camera.aspect = W / F;
     camera.setViewOffset(W, F, 0, F / 2 - boatCenterY, W, H);
     camera.updateProjectionMatrix();
@@ -242,22 +230,20 @@ export function createFerry(canvas, { reduced = false, weak = false } = {}) {
 
   /* ------------------------------------------------------------ animation */
   let t = 0, spinBoost = 0, running = false, visible = false, last = 0, raf = 0;
-  boat.rotation.y = -0.6;
-  function draw(dt) {
+  boat.rotation.y = -0.5;
+  function draw(dt, paint = true) {
     t += dt;
-    boat.rotation.y += dt * (0.22 + spinBoost);
+    waterMat.uniforms.uT.value = t;
+    // ride the waves: height from the swell under the boat, pitch and roll from its slope
+    const h0 = waveHeight(0, 0, t), hx = waveHeight(0.6, 0, t), hz = waveHeight(0, 0.6, t);
+    boat.position.y = h0 - 0.16;                 // sits in the water, not on it
+    boat.rotation.y += dt * (0.2 + spinBoost);
     spinBoost *= Math.pow(0.35, dt);
-    boat.position.y = Math.sin(t * 1.3) * 0.045;
-    boat.rotation.z = Math.sin(t * 0.9) * 0.022;
-    boat.rotation.x = Math.sin(t * 1.1 + 1) * 0.018;
+    boat.rotation.z = Math.atan2(hx - h0, 0.6) * 0.8;
+    boat.rotation.x = -Math.atan2(hz - h0, 0.6) * 0.8;
     flag.rotation.y = Math.sin(t * 3) * 0.25;
-    ripples.forEach((r) => {
-      const k = (t * 0.2 + r.userData.ph) % 1;
-      r.scale.set(2.4 + k * 2.4, 1.48 + k * 1.5, 1);
-      r.material.opacity = 0.5 * rippleK * (1 - k);
-    });
     nextPuff -= dt;
-    if (nextPuff <= 0 && dt > 0) { emit(); nextPuff = 0.34 + Math.random() * 0.12; }
+    if (nextPuff <= 0 && dt > 0) { emit(); nextPuff = 0.36 + Math.random() * 0.12; }
     for (const p of puffs) {
       if (!p.sp.visible) continue;
       p.age += dt;
@@ -269,7 +255,7 @@ export function createFerry(canvas, { reduced = false, weak = false } = {}) {
       p.sp.scale.set(s, s, 1);
       p.sp.material.opacity = smokeK * Math.min(1, k * 6) * (1 - k) ** 1.2;
     }
-    renderer.render(scene, camera);
+    if (paint) renderer.render(scene, camera);
   }
   function loop(now) {
     if (!running) return;
@@ -306,14 +292,13 @@ export function createFerry(canvas, { reduced = false, weak = false } = {}) {
   });
 
   resize();
-  for (let i = 0; i < 40; i++) draw(0.16);   // start with a plume already rising
+  for (let i = 0; i < 40; i++) draw(0.16, false);   // start with a plume already rising
+  draw(0);
 
   function setTheme(dark) {
     nightU.value = dark ? 1 : 0;
-    smokeTint.set(dark ? "#C9BFEA" : "#EEE8FF"); smokeK = dark ? 0.48 : 0.62;
+    smokeTint.set(dark ? "#CFC4EE" : "#FFFFFF"); smokeK = dark ? 0.46 : 0.6;
     puffs.forEach((p) => p.sp.material.color.copy(smokeTint));
-    waterMat.opacity = dark ? 0.45 : 0.7;
-    rippleK = dark ? 0.55 : 1;
     draw(0);
   }
   return { setTheme };

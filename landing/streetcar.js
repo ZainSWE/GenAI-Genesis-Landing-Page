@@ -621,6 +621,7 @@ export function createStreetcar(team) {
   const smooth = (t) => t * t * (3 - 2 * t);
   const Vv = (a) => new THREE.Vector3(...a);
   const REF = { cam: Vv([-3.7, 1.75, 6.6]), look: Vv([0.3, 2.2, -8.0]) };     // platform view of the nose
+  const PREF = { cam: Vv([-3.0, 2.1, 12.5]), look: Vv([0.1, 3.6, -1.0]) };    // same view, framed for portrait screens
   let q = 0, time = 0, revealCount = 0;
   const winZ = (f) => {
     const i = Math.max(0, Math.min(avatars.length - 1, f));
@@ -641,7 +642,13 @@ export function createStreetcar(team) {
       const k = smooth(Math.min(1, (q - 0.78) / 0.14));
       pos.lerpVectors(T.cam, REF.cam, k); tgt.lerpVectors(T.look, REF.look, k);
     }
-    if (camera.aspect < 0.85) { pos.x -= 4.5; pos.y += 0.5; pos.z += 5.5; }
+    if (camera.aspect < 0.85) {
+      // phones: tracking shots pull back; the opening / closing front view is re-framed so the
+      // nose sits centred in the lower half, under the copy
+      const w = q < 0.12 ? 1 : q < 0.78 ? 1 - smooth(Math.min(1, (q - 0.12) / 0.08)) : smooth(Math.min(1, (q - 0.78) / 0.14));
+      pos.x -= 4.5 * (1 - w); pos.y += 0.5 * (1 - w); pos.z += 5.5 * (1 - w);
+      pos.lerp(PREF.cam, w); tgt.lerp(PREF.look, w);
+    }
     pos.y += Math.sin(time * 9.0) * 0.01; pos.x += Math.sin(time * 5.3) * 0.008;
     camera.position.copy(pos); camera.lookAt(tgt);
   }

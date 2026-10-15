@@ -21,6 +21,8 @@ import { LOGOS } from "./logos.js";
 import { createFerry } from "./ferry.js";
 
 const reduced = document.documentElement.classList.contains("reduced-motion");
+const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;   // low-end hint
+const coarse = matchMedia("(pointer: coarse)").matches;                                          // touch screen
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -200,9 +202,10 @@ function setMetroProgress(f) {
   const n = stopEls.length, cur = Math.round(f);
   stopEls.forEach((el, i) => {
     const e = Math.max(0, 1 - Math.abs(i - f) / 1.6);
-    el.style.setProperty("--e", (e * e * (3 - 2 * e)).toFixed(3));
-    el.classList.toggle("passed", i < cur);
-    el.classList.toggle("is-active", i === cur);
+    const v = (e * e * (3 - 2 * e)).toFixed(2);
+    if (el._e !== v) { el._e = v; el.style.setProperty("--e", v); }
+    const st = (i < cur ? 1 : 0) + (i === cur ? 2 : 0);
+    if (el._st !== st) { el._st = st; el.classList.toggle("passed", i < cur); el.classList.toggle("is-active", i === cur); }
   });
   if (metroLen) {
     const at = metroPts[Math.min(n - 1, Math.floor(f))]?.at ?? 0, nx = metroPts[Math.min(n - 1, Math.ceil(f))]?.at ?? at;
@@ -415,7 +418,7 @@ function faqOpen(d) {
   d.open = true; d.classList.add("is-open");
   const h = body.scrollHeight;
   d._anim = body.animate([{ height: "0px", opacity: 0 }, { height: h + "px", opacity: 1 }], { duration: faqDur, easing: faqEase });
-  d._anim.onfinish = () => { d._anim = null; lenis?.resize?.(); };
+  d._anim.onfinish = () => { d._anim = null; lenis?.resize?.(); measure(); requestUpdate(); };
 }
 function faqClose(d) {
   const body = d.querySelector(".faq-a");
@@ -423,7 +426,7 @@ function faqClose(d) {
   d.classList.remove("is-open");
   const h = body.offsetHeight;
   d._anim = body.animate([{ height: h + "px", opacity: 1 }, { height: "0px", opacity: 0 }], { duration: faqDur, easing: faqEase });
-  d._anim.onfinish = () => { d.open = false; d._anim = null; lenis?.resize?.(); };
+  d._anim.onfinish = () => { d.open = false; d._anim = null; lenis?.resize?.(); measure(); requestUpdate(); };
 }
 faqItems.forEach((d) => {
   if (d.open) d.classList.add("is-open");
@@ -491,17 +494,19 @@ if (!reduced && finePointer) {
 }
 
 // Halo centre leans gently toward the cursor
-const rootStyle = document.documentElement.style;
+const halos = $$(".halo");
 let hx = 50, hy = 50;
-addEventListener("pointermove", (e) => {
+if (!coarse) addEventListener("pointermove", (e) => {
   hx = 50 + ((e.clientX / innerWidth) - 0.5) * 22;
   hy = 50 + ((e.clientY / innerHeight) - 0.5) * 22;
-  rootStyle.setProperty("--hx", hx.toFixed(1) + "%");
-  rootStyle.setProperty("--hy", hy.toFixed(1) + "%");
+  for (const h of halos) { h.style.setProperty("--hx", hx.toFixed(1) + "%"); h.style.setProperty("--hy", hy.toFixed(1) + "%"); }
 }, { passive: true });
+let haloTint = "";
 function setHalo(s) {          // s: how much 3D sits behind the text (0..1)
-  rootStyle.setProperty("--halo-blur", (4 + s * 12).toFixed(1) + "px");
-  rootStyle.setProperty("--halo-tint", (0.12 + s * 0.26).toFixed(3));
+  const t = (0.12 + Math.round(s * 50) / 50 * 0.26).toFixed(3);
+  if (t === haloTint) return;
+  haloTint = t;
+  for (const h of halos) h.style.setProperty("--halo-tint", t);
 }
 
 /* ----------------------------------------------------------------- reveals */
@@ -532,14 +537,39 @@ function countUp(el) {
 /* ---------------------------------------------------------------- backdrop */
 const backdrop = createBackdrop({ reduced });
 if (backdrop) $(".bg").after(backdrop.canvas);
+// film grain over the 3D stage (sits above the canvas, below the page content)
+$("#stage").after(Object.assign(document.createElement("div"), { className: "stage-grain", ariaHidden: "true" }));
+if (backdrop) document.documentElement.classList.add("has-haze");
+{
+  // plain alpha-blended noise is far cheaper to composite over the moving 3D than a soft-light blend
+  // drawn at screen resolution so each speck is one device pixel, like the old SVG noise
+  const r = Math.min(2, Math.max(1, Math.round(devicePixelRatio || 1))), n = 128 * r;
+  const g = document.createElement("canvas"); g.width = g.height = n;
+  const cx = g.getContext("2d"), img = cx.createImageData(n, n), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = Math.random(), k = Math.abs(v - 0.5) * 2, c = v > 0.5 ? 255 : 0;
+    d[i] = d[i + 1] = d[i + 2] = c; d[i + 3] = Math.round(k * k * 26);
+  }
+  cx.putImageData(img, 0, 0);
+  const grainEl = $(".stage-grain");
+  grainEl.style.setProperty("--grain", `url(${g.toDataURL()})`);
+  grainEl.style.backgroundSize = "128px 128px";
+}
 
 /* ------------------------------------------------------------------ WebGL */
 const canvas = $("#stage");
 let renderer = null;
+// phones get 1.5x (sharp enough on a 3x screen, ~half the pixels); the frame loop lowers it further if needed
+let pixelRatio = Math.min(devicePixelRatio || 1, weak ? 1 : coarse ? 1.5 : 2);
+// iOS resizes the window whenever the address bar slides; the canvas uses the large-viewport height
+// (CSS 100lvh) so those resizes can be ignored instead of rebuilding everything mid-scroll
+const lvhProbe = Object.assign(document.createElement("div"), { ariaHidden: "true" });
+lvhProbe.style.cssText = "position:fixed;top:0;left:0;width:0;height:100lvh;visibility:hidden;pointer-events:none";
+document.body.append(lvhProbe);
+let stageW = 0, stageH = 0;
 try {
-  const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
   renderer = new THREE.WebGLRenderer({ canvas, antialias: !weak, alpha: true, powerPreference: "low-power" });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, weak ? 1 : 2));
+  renderer.setPixelRatio(pixelRatio);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x000000, 0);
 } catch (err) {
@@ -551,7 +581,7 @@ let city = null;
 const subway = renderer ? createStreetcar(TEAM) : null;
 subway?.setTheme(document.documentElement.dataset.theme === "dark");
 // FAQ ferry (its own small canvas under the FAQ title)
-const ferry = renderer ? createFerry($(".ferry-canvas"), { reduced, weak: (navigator.hardwareConcurrency || 8) <= 4 }) : null;
+const ferry = renderer ? createFerry($(".ferry-canvas"), { reduced, weak, coarse }) : null;
 ferry?.setTheme(document.documentElement.dataset.theme === "dark");
 if (renderer) {
   // the stats list doubles as the source for the 3D number band around the globe
@@ -561,17 +591,37 @@ if (renderer) {
   createCity(modelUrl, { stats }).then((c) => {
     city = c; subway?.addTower(c.towerModel, PASTEL);
     c.setTheme(document.documentElement.dataset.theme === "dark");
+    // compile every shader and upload textures now, while idle, so nothing compiles mid-scroll
+    whenIdle(() => { warm(c.scene, c.camera); if (subway) whenIdle(() => warm(subway.scene, subway.camera)); });
     if (!reduced) document.documentElement.classList.add("stats-ring");   // the band replaces the flat list
-    resize(); requestUpdate();
+    resize(true); requestUpdate();
   })
     .catch((e) => { console.warn("City failed to load", e); });
 }
 
-function resize() {
+function whenIdle(fn) { (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(fn, { timeout: 2500 }); }
+function warm(scene, camera) {
   if (!renderer) return;
-  const w = innerWidth, h = innerHeight;
-  renderer.setSize(w, h, false);
-  for (const s of [city, subway]) if (s) { s.camera.aspect = w / h; s.camera.updateProjectionMatrix(); }
+  const hidden = [];
+  scene.traverse((o) => { if (!o.visible) { hidden.push(o); o.visible = true; } });   // compile() skips hidden objects
+  const parallel = renderer.compileAsync && renderer.getContext().getExtension("KHR_parallel_shader_compile");
+  try { parallel ? renderer.compileAsync(scene, camera).catch(() => {}) : renderer.compile(scene, camera); } catch (e) {}
+  hidden.forEach((o) => { o.visible = false; });
+  scene.traverse((o) => {
+    for (const m of [].concat(o.material || [])) for (const k of ["map", "alphaMap"]) if (m[k]) renderer.initTexture(m[k]);
+  });
+}
+
+function resize(force = false) {
+  const w = innerWidth, h = lvhProbe.offsetHeight || innerHeight;
+  // address-bar slides (same width, small height change) need nothing rebuilt
+  const barOnly = w === stageW && (lvhProbe.offsetHeight ? h === stageH : coarse && Math.abs(h - stageH) < 160);
+  if (barOnly && force !== true) { requestUpdate(); return; }
+  stageW = w; stageH = h;
+  if (renderer) {
+    renderer.setSize(w, h, false);
+    for (const s of [city, subway]) if (s) { s.camera.aspect = w / h; s.camera.updateProjectionMatrix(); }
+  }
   measure();
   requestUpdate();
 }
@@ -605,8 +655,13 @@ const statsEl = $("#stats");
 let anchors = [];
 
 function docTop(el) { return el.getBoundingClientRect().top + scrollY; }
+function offTop(el) { let t = 0; for (let e = el; e; e = e.offsetParent) t += e.offsetTop; return t; }   // ignores transforms
+const G = new Map();
+function cacheGeo() { for (const el of [...storyChs, borders, finale, statsEl]) G.set(el, { t: offTop(el), h: el.offsetHeight }); }
+function rectOf(el) { if (!G.has(el)) cacheGeo(); const g = G.get(el), top = g.t - scrollY; return { top, bottom: top + g.h, height: g.h }; }
 function measure() {
   const vh = innerHeight;
+  cacheGeo();
   anchors = chapters.map((el) => Math.max(0, docTop(el) + (el.offsetHeight - vh) / 2));
   const last = chapters[chapters.length - 1];
   anchors.push(docTop(last) + last.offsetHeight);                      // "exit" pose
@@ -645,13 +700,28 @@ function startLoop() {
   looping = true; last = performance.now();
   requestAnimationFrame(frame);
 }
+let slowSum = 0, slowN = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const raw = (now - last) / 1000;
+  const dt = Math.min(0.05, raw); last = now;
+  if (raw < 0.25) {
+    slowSum += raw; slowN++;
+    if (slowN >= 90) {
+      if (slowSum / slowN > 1 / 45 && pixelRatio > 1) {
+        pixelRatio = Math.max(1, pixelRatio - 0.25);
+        renderer.setPixelRatio(pixelRatio); renderer.setSize(stageW, stageH, false);
+      }
+      slowSum = 0; slowN = 0;
+    }
+  }
   const keep = update(dt);
   if (keep) requestAnimationFrame(frame); else looping = false;
 }
 
 let finaleState = null, fadedAt = null;
+const crewN = $("#crew-n");
+let stageOp = -1;
+function setStageOpacity(o) { o = Math.round(o * 100) / 100; if (o !== stageOp) { stageOp = o; canvas.style.opacity = String(o); } }
 // Story chapters (desktop): the copy is pinned in the white strip and crossfades.
 // The chapter under the middle of the screen is current; none while the strip
 // itself is entering from below or leaving at the end.
@@ -659,10 +729,10 @@ const storyTexts = $$(".split-text[data-story]");
 const storyChs = storyTexts.map((t) => t.closest(".split-ch"));
 let storyCur = -1;
 function updateStory(vh) {
-  const first = storyChs[0].getBoundingClientRect(), last = storyChs[storyChs.length - 1].getBoundingClientRect();
+  const first = rectOf(storyChs[0]), last = rectOf(storyChs[storyChs.length - 1]);
   let cur = -1;
   if (first.top < vh * 0.35 && last.bottom > vh * 0.65) {
-    storyChs.forEach((ch, i) => { const r = ch.getBoundingClientRect(); if (r.top <= vh / 2 && r.bottom > vh / 2) cur = i; });
+    storyChs.forEach((ch, i) => { const r = rectOf(ch); if (r.top <= vh / 2 && r.bottom > vh / 2) cur = i; });
   }
   if (cur === storyCur) return;
   storyCur = cur;
@@ -676,14 +746,14 @@ function update(dt = 0) {
   // Metro map: progress along the line while the section is pinned; the backdrop
   // washes to white while the map is on screen.
   {
-    const r = borders.getBoundingClientRect();
+    const r = rectOf(borders);
     const p = reduced ? 1 : clamp(-r.top / Math.max(1, r.height - vh));
-    setMetroProgress(p * (stopEls.length - 1));
+    if (r.top < vh * 1.2 && r.bottom > -vh * 0.2) setMetroProgress(p * (stopEls.length - 1));   // only near the map
     backdrop?.setWhite(clamp((vh * 1.7 - r.top) / (vh * 0.8)) * clamp((r.bottom - vh * 0.15) / (vh * 0.6)));
   }
 
   // Finale copy state (also without WebGL)
-  const fr = finale.getBoundingClientRect();
+  const fr = rectOf(finale);
   const q = reduced ? 1 : clamp(-fr.top / (fr.height - vh));
   const cta = q > 0.8;
   if (cta !== finaleState) { finale.classList.toggle("is-cta", cta); finaleState = cta; }
@@ -696,11 +766,11 @@ function update(dt = 0) {
     subway.setProgress(q);
     subway.tick(dt || 1 / 60, reduced);
     const op = clamp(1 - fr.top / (vh * 0.9));
-    canvas.style.opacity = String(op);
+    setStageOpacity(op);
     setHalo(op * (0.75 + 0.25 * Math.sin(performance.now() / 900)));   // breathes slightly with the wind
     renderer.render(subway.scene, subway.camera);
-    $("#crew-n").textContent = subway.revealed;
-    const L = subway.labels(innerWidth, innerHeight);
+    if (crewN.textContent !== String(subway.revealed)) crewN.textContent = subway.revealed;
+    const L = subway.labels(stageW, stageH);
     L.forEach((l, i) => {
       const el = labelEls[i]; if (!el) return;
       el.classList.toggle("on", l.visible && !cta);
@@ -714,7 +784,7 @@ function update(dt = 0) {
   if (!city) return false;
   const c = reduced ? (y < anchors[1] * 0.5 ? 0 : 1) : chapterIndex(y);
   const fade = clamp((c - 3.15) / 0.5);
-  canvas.style.opacity = String(1 - fade);
+  setStageOpacity(1 - fade);
   setHalo((1 - fade) * clamp(c - 0.6));
   cityOnStage = fade < 1;
   // keep the globe turning until the canvas's CSS opacity transition has finished,
@@ -723,7 +793,7 @@ function update(dt = 0) {
   else fadedAt = null;
   city.tick(dt);
   // number band: fades in as the stats chapter arrives, sweeps while its heading is pinned, fades as it leaves
-  const sr = statsEl.getBoundingClientRect();
+  const sr = rectOf(statsEl);
   // sweep runs while the stats chapter holds the middle of the screen, finishing just before it hands over
   city.ring.p = clamp((vh * 0.5 - sr.top) / Math.max(1, sr.height - vh * 0.3));
   city.ring.o = reduced ? 0 : clamp((vh * 0.75 - sr.top) / (vh * 0.5)) * clamp((sr.bottom - vh * 0.3) / (vh * 0.35));
@@ -735,6 +805,14 @@ function update(dt = 0) {
 
 addEventListener("resize", resize);
 addEventListener("load", () => { measure(); requestUpdate(); });
+{
+  let t = 0, lastH = 0;
+  new ResizeObserver(() => {
+    const h = document.body.offsetHeight;
+    if (h === lastH) return; lastH = h;
+    clearTimeout(t); t = setTimeout(() => { measure(); requestUpdate(); }, 160);
+  }).observe(document.body);
+}
 document.fonts?.ready.then(() => { measure(); requestUpdate(); });
 resize();
 window.__landing = { update, measure };
