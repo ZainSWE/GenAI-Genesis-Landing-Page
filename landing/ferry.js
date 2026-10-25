@@ -16,7 +16,8 @@ import * as THREE from "three";
 
 const LIGHT = new THREE.Vector2(-0.75, 0.66).normalize();
 const nightU = { value: 0 };
-const PAL = { white: "#FFFFFF", lilacPale: "#F3DAFF", lilac: "#E09DFF", mint: "#00FFDD", aqua: "#BCFEFF", aquaPale: "#E4FEFF" };
+// primary cyan + secondary purple: reads clearly on both the light and the dark page
+const PAL = { white: "#FFFFFF", cyan: "#18D9D2", cyanDeep: "#0E9F9A", purple: "#8B6CF0", purpleDeep: "#6447D2", aquaPale: "#DFFFFC" };
 
 function flat(color, shade, topMix = 0.45) {
   const m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
@@ -36,7 +37,7 @@ function flat(color, shade, topMix = 0.45) {
         vec3 c = mix(mix(b, uShade, 0.6), b, lit);
         if (n.y > 0.6) c = mix(b, vec3(1.0), ${topMix.toFixed(2)});
         if (n.y < -0.6) c = uShade;
-        c = mix(c, c * vec3(0.58, 0.54, 0.78) + vec3(0.02, 0.01, 0.05), uNight);
+        c = mix(c, c * vec3(0.58, 0.54, 0.78) + vec3(0.02, 0.01, 0.05), uNight * 0.3);   // keep the boat bright at night
         c += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.07;   // film grain
         diffuseColor.rgb = c;`);
   };
@@ -125,7 +126,7 @@ export function createFerry(canvas, { reduced = false, weak = false, coarse = fa
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: !weak, alpha: true, powerPreference: "low-power" });
   } catch (e) { return null; }
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, weak ? 1 : coarse ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, weak ? 1 : 1.5));   // 1.5x + antialiasing reads as sharp as 2x, ~half the pixels
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
@@ -134,18 +135,18 @@ export function createFerry(canvas, { reduced = false, weak = false, coarse = fa
   /* ------------------------------------------------------------ the boat */
   const boat = new THREE.Group();
   const M = {
-    hull: flat(PAL.white, "#D9C8F5", 0.5),
-    stripe: flat(PAL.mint, "#16C9B5", 0.4),
-    keel: flat(PAL.lilac, "#B77BE8", 0.3),
-    cabin: flat(PAL.lilacPale, "#DDB6F3", 0.6),
-    roof: flat(PAL.lilac, "#B77BE8", 0.5),
-    house: flat(PAL.white, "#DCCBF6", 0.6),
-    port: flat(PAL.aqua, "#86E3E6", 0.5),
-    portRim: flat(PAL.white, "#D9C8F5", 0.5),
-    funnel: flat(PAL.mint, "#16C9B5", 0.35),
-    band: flat(PAL.white, "#D9C8F5", 0.4),
-    top: flat(PAL.lilac, "#B77BE8", 0.4),
-    flag: flat(PAL.lilac, "#B77BE8", 0.3),
+    hull: flat(PAL.cyan, PAL.cyanDeep, 0.35),
+    stripe: flat(PAL.white, "#CFEFEF", 0.4),
+    keel: flat(PAL.purpleDeep, "#4A31A8", 0.25),
+    cabin: flat(PAL.purple, PAL.purpleDeep, 0.4),
+    roof: flat(PAL.purpleDeep, "#4A31A8", 0.35),
+    house: flat(PAL.white, "#D6CCF6", 0.5),
+    port: flat(PAL.aquaPale, "#9FE9E4", 0.5),
+    portRim: flat(PAL.white, "#D6CCF6", 0.5),
+    funnel: flat(PAL.cyan, PAL.cyanDeep, 0.3),
+    band: flat(PAL.white, "#CFEFEF", 0.4),
+    top: flat(PAL.purpleDeep, "#4A31A8", 0.35),
+    flag: flat(PAL.purple, PAL.purpleDeep, 0.3),
   };
   const L = 4.4, B = 1.9;
   // chunky rounded hull: lilac keel band, white body, mint stripe set into the top
@@ -269,6 +270,14 @@ export function createFerry(canvas, { reduced = false, weak = false, coarse = fa
     running = on;
     if (on) { last = performance.now(); raf = requestAnimationFrame(loop); } else cancelAnimationFrame(raf);
   }
+  // compile the smoke sprites' shader in idle time: they stay hidden until the first puff, which
+  // otherwise compiled it right as the FAQ scrolled into view
+  (window.requestIdleCallback || ((f) => setTimeout(f, 400)))(() => {
+    puffs[0].sp.visible = true;
+    try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) {}
+    puffs[0].sp.visible = false;
+    draw(0);
+  }, { timeout: 3000 });
   const io = new IntersectionObserver(([en]) => { visible = en.isIntersecting; setRunning(visible && !document.hidden); }, { rootMargin: "120px 0px" });
   io.observe(canvas);
   document.addEventListener("visibilitychange", () => setRunning(visible && !document.hidden));

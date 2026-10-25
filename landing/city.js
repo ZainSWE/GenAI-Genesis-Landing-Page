@@ -17,19 +17,24 @@
  * In the stats chapter the numbers orbit the globe as a curved band of type
  * (Universal-logo style) that turns with scroll: each stat swings in from
  * behind the glass, crosses the front and exits round the other side.
+ *
+ * After the Toronto chapter the snow globe shrinks while the Earth (globe.js) grows
+ * inside it, then the Earth settles as a big horizon along the bottom of the screen,
+ * turning to each country as the TTC line on the map advances.
  */
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 import signFont from "./sign-font.js";
+import { createGlobe } from "./globe.js";
 
 const RING_FONT = `"Google Sans Flex", "Google Sans", system-ui, sans-serif`;
 
 /* ------------------------------------------------------------- palette */
 export const PASTEL = {
-  tower_teal:     ["#BCFEFF", "#00FFDD"],
-  tower_teal_low: ["#BCFEFF", "#00FFDD"],
+  tower_teal:     ["#2EF2DC", "#24B3AC"],   // the hero's "next." gradient: bright cyan lit side, deep teal shadow
+  tower_teal_low: ["#2EF2DC", "#24B3AC"],
   band_purple:    ["#F3DAFF", "#E09DFF"],
   band_top:       ["#F3DAFF", "#F3DAFF"],
   band_rim:       ["#F3DAFF", "#F3DAFF"],
@@ -70,6 +75,61 @@ function towerMaterial(lit, shadow, name) {
   };
   m.customProgramCacheKey = () => "city-tower";
   return m;
+}
+
+/* ------------------------------------------------------------ dust
+   Snow globe → Earth: the moment the Earth starts to form, the whole snow globe (glass, snow,
+   city, tower, pedestal) crumbles to dust from the top down. One uniform drives every material;
+   the crumble key is computed in the city's own space so it lines up across meshes. */
+const dustU = { value: 0 };                       // 0 → 1.5 (runs past 1 so the last specks finish)
+const dustInv = { value: new THREE.Matrix4() };   // world → city space
+const DUST_TOP = 10.5, DUST_BOT = -2.05;          // dome top (GY + GR) → pedestal foot, city space
+const DUST_GLSL = `
+  uniform float uDust; uniform mat4 uDustInv;
+  float dustH(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+  float dustN(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(dustH(i), dustH(i + vec3(1,0,0)), f.x), mix(dustH(i + vec3(0,1,0)), dustH(i + vec3(1,1,0)), f.x), f.y),
+               mix(mix(dustH(i + vec3(0,0,1)), dustH(i + vec3(1,0,1)), f.x), mix(dustH(i + vec3(0,1,1)), dustH(i + vec3(1,1,1)), f.x), f.y), f.z); }
+  // < 0: still solid; 0..1: the glowing crumble edge; the caller discards past it
+  float dustEdge(vec3 w){
+    if (uDust <= 0.0) return -1.0;
+    vec3 p = (uDustInv * vec4(w, 1.0)).xyz;
+    float t = clamp((${DUST_TOP.toFixed(2)} - p.y) / ${(DUST_TOP - DUST_BOT).toFixed(2)}, 0.0, 1.0);
+    float key = mix(t, dustN(p * 2.2) * 0.6 + dustH(floor(p * 9.0)) * 0.4, 0.55);
+    float th = uDust * 1.15;
+    if (key < th) return 2.0;
+    return 1.0 - smoothstep(th, th + 0.07, key);
+  }`;
+const DUST_COL = "mix(vec3(1.0), vec3(0.7, 1.0, 0.96), uDustNight)";
+/** Patch a built-in material (MeshBasic / Points, with or without its own onBeforeCompile). */
+function dustMaterial(m) {
+  if (m.userData.dust || m.isShaderMaterial) return;
+  m.userData.dust = true;
+  const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey;
+  m.onBeforeCompile = (s, r) => {
+    prev?.call(m, s, r);
+    s.uniforms.uDust = dustU; s.uniforms.uDustInv = dustInv; s.uniforms.uDustNight = cityNight;
+    s.vertexShader = s.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vDustW;")
+      .replace("#include <project_vertex>", `#include <project_vertex>
+        #ifdef USE_INSTANCING
+          vDustW = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+        #else
+          vDustW = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        #endif`);
+    s.fragmentShader = s.fragmentShader
+      .replace("#include <common>", `#include <common>\nvarying vec3 vDustW; uniform float uDustNight;${DUST_GLSL}`)
+      .replace("#include <clipping_planes_fragment>", "#include <clipping_planes_fragment>\n  float dE = dustEdge(vDustW); if (dE > 1.5) discard;")
+      .replace("#include <opaque_fragment>", `#include <opaque_fragment>\n  if (dE > 0.0) gl_FragColor.rgb = mix(gl_FragColor.rgb, ${DUST_COL}, dE);`);
+  };
+  m.customProgramCacheKey = () => (prevKey ? prevKey.call(m) : "") + "-dust";
+  m.needsUpdate = true;
+}
+function dustify(root) {
+  root.traverse((o) => {
+    if (!o.material) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) dustMaterial(m);
+  });
 }
 
 /**
@@ -162,13 +222,67 @@ export async function createCity(model, { stats = [] } = {}) {
   foot.position.y = -1.5 - 0.225;
   city.add(snowRing, plinth, band, foot);
 
-  const domeU = { uOpacity: { value: 0 } };
+  // Dust specks: off the pedestal, the glass and the city, each leaving when the crumble line
+  // reaches it (same top-down key as the surfaces)
+  const SP_BASE = 700, SP_GLASS = 1100, SP_CITY = 500, SPECKS = SP_BASE + SP_GLASS + SP_CITY;
+  const spP = new Float32Array(SPECKS * 3), spD = new Float32Array(SPECKS * 3), spK = new Float32Array(SPECKS);
+  {
+    const r2 = rng(777);
+    const keyAt = (y) => Math.min(1, Math.max(0, (DUST_TOP - y) / (DUST_TOP - DUST_BOT))) * 0.45 + r2() * 0.55;
+    for (let i = 0; i < SPECKS; i++) {
+      let x, y, z, dx, dy, dz;
+      if (i < SP_BASE) {                       // pedestal rim
+        const a = r2() * Math.PI * 2; y = -0.05 - r2() * 1.9;
+        const rr = (y > -1.5 ? groundR + 0.35 + (-y / 1.5) * 0.55 : groundR + 1.0) + 0.02;
+        x = Math.cos(a) * rr; z = Math.sin(a) * rr;
+        dx = Math.cos(a) * (0.6 + r2()); dy = 0.5 + r2() * 1.2; dz = Math.sin(a) * (0.6 + r2());
+      } else if (i < SP_BASE + SP_GLASS) {     // the glass: points on the dome, blown outward
+        let nx, ny, nz;
+        do { nx = r2() * 2 - 1; ny = r2() * 2 - 1; nz = r2() * 2 - 1; } while (nx * nx + ny * ny + nz * nz > 1 || nx * nx + ny * ny + nz * nz < 0.05);
+        const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+        if (GY + ny * GR < 0) ny = -ny;        // keep to the part above the ground
+        x = nx * GR; y = GY + ny * GR; z = nz * GR;
+        const sp = 0.5 + r2() * 1.1;
+        dx = nx * sp; dy = ny * sp + 0.4; dz = nz * sp;
+      } else {                                 // the city: low points among the buildings
+        const a = r2() * Math.PI * 2, rr = Math.sqrt(r2()) * (R - 0.3);
+        x = Math.cos(a) * rr; z = Math.sin(a) * rr; y = 0.1 + Math.pow(r2(), 2) * 4.5;
+        dx = Math.cos(a) * (0.4 + r2()); dy = 0.6 + r2() * 1.2; dz = Math.sin(a) * (0.4 + r2());
+      }
+      spP.set([x, y, z], i * 3); spD.set([dx, dy, dz], i * 3); spK[i] = keyAt(y);
+    }
+  }
+  const spGeo = new THREE.BufferGeometry();
+  spGeo.setAttribute("position", new THREE.BufferAttribute(spP, 3));
+  spGeo.setAttribute("aDir", new THREE.BufferAttribute(spD, 3));
+  spGeo.setAttribute("aKey", new THREE.BufferAttribute(spK, 1));
+  const specks = new THREE.Points(spGeo, new THREE.ShaderMaterial({
+    uniforms: { uDis: dustU, uNight: cityNight, uScale: { value: 300 } }, transparent: true, depthWrite: false,
+    vertexShader: `attribute vec3 aDir; attribute float aKey; uniform float uDis; uniform float uScale; varying float vA;
+      void main(){
+        float age = clamp((uDis * 1.15 - aKey) / 0.35, 0.0, 1.0);
+        vA = age > 0.0 ? (1.0 - age) : 0.0;
+        vec3 p = position + aDir * age * 2.2 + vec3(0.0, -1.0, 0.0) * age * age * 0.6;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = uScale * 0.09 * (1.0 - age * 0.6) / -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `uniform float uNight; varying float vA;
+      void main(){ if (vA <= 0.0) discard; vec2 q = gl_PointCoord - 0.5; if (dot(q, q) > 0.25) discard;
+        gl_FragColor = vec4(mix(vec3(0.95, 0.92, 1.0), vec3(0.6, 1.0, 0.95), uNight), vA); }`,
+  }));
+  specks.frustumCulled = false; specks.visible = false; specks.renderOrder = 12;
+  city.add(specks);
+
+  const domeU = { uOpacity: { value: 0 }, uDust: dustU, uDustInv: dustInv, uDustNight: cityNight };
   const domeMat = (side, k) => new THREE.ShaderMaterial({
     uniforms: domeU, transparent: true, depthWrite: false, side,
-    vertexShader: `varying vec3 vN; varying vec3 vV;
-      void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: `uniform float uOpacity; varying vec3 vN; varying vec3 vV;
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vDustW;
+      void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+        vDustW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uOpacity; uniform float uDustNight; varying vec3 vN; varying vec3 vV; varying vec3 vDustW;${DUST_GLSL}
       void main(){
+        float dE = dustEdge(vDustW); if (dE > 1.5) discard;
         vec3 n = normalize(vN); vec3 v = normalize(vV);
         if (!gl_FrontFacing) n = -n;
         float f = 1.0 - abs(dot(n, v));
@@ -179,6 +293,7 @@ export async function createCity(model, { stats = [] } = {}) {
         vec3 col = mix(vec3(0.97, 0.98, 1.0), vec3(0.78, 1.0, 0.97), rim * 0.6);
         float a = (0.012 + rim * 0.38 + spec * 0.75 + streak * 0.12) * ${k.toFixed(2)};
         gl_FragColor = vec4(col + spec * 0.6, a * uOpacity);
+        if (dE > 0.0) gl_FragColor = vec4(mix(gl_FragColor.rgb, ${DUST_COL}, dE), max(gl_FragColor.a, dE * 0.85 * uOpacity));
       }`,
   });
   const domeGeo = new THREE.SphereGeometry(GR, 96, 64, 0, Math.PI * 2, 0, Math.acos(-GY / GR));
@@ -364,6 +479,14 @@ export async function createCity(model, { stats = [] } = {}) {
   }
   layout();
 
+  /* ------------------------------------------------------------- globe */
+  // drawn in a second pass with an orthographic camera, in screen units (y: −1…1, x: ±aspect)
+  const globe = createGlobe({ night: cityNight });
+  const globeScene = new THREE.Scene(), globeCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+  globeCam.position.z = 50;
+  globeScene.add(globe.group);
+  const worldState = { p: 0 };          // station progress along the map (0 … n-1), set by the page
+
   /* -------------------------------------------------------- stats ring */
   // Curved type band all the way round the dome. Lives in the scene (not the
   // turning city) so it orbits on its own: a slow idle drift, sped up by scroll.
@@ -454,7 +577,8 @@ export async function createCity(model, { stats = [] } = {}) {
       { cam: [0, 13, 40],     look: [0, 3.8, 0],  sx: 0.5,  tilt: 0.0,   rot: 0.8 },          // about: globe in the right half
       { cam: [0, 12, 53],     look: [0, 3.8, 0],  sx: 0.5,  tilt: 0.0,   rot: 2.5 },          // stats: lower view so the number band reads as an orbit
       { cam: [0, 3.6, 32],    look: [0, 4.8, 0],  sx: 0.5,  tilt: 0.0,   rot: Math.PI * 2 },  // toronto: from the lake, right half
-      { cam: [0, 24, 28],     look: [0, 2, 0],    sx: 0.5,  tilt: 0.0,   rot: Math.PI * 2.2 },
+      { cam: [0, 6, 40],      look: [0, 2.5, 0],  sx: 0.0,  tilt: 0.0,   rot: Math.PI * 3.0 },  // world: Earth along the bottom (placed in pose())
+      { cam: [0, 6, 40],      look: [0, 2.5, 0],  sx: 0.0,  tilt: 0.0,   rot: Math.PI * 3.0 },  // world exit
     ],
     // phones: text sits on a white block at the top, so the globe drops into the lower part
     tall: [
@@ -462,13 +586,15 @@ export async function createCity(model, { stats = [] } = {}) {
       { cam: [0, 18, 60],     look: [0, 13, 0],   sx: 0.0,  tilt: 0.0,   rot: 0.8 },
       { cam: [0, 14, 70],     look: [0, 9, 0],    sx: 0.0,  tilt: 0.0,   rot: 2.5 },
       { cam: [0, 4, 46],      look: [0, 14, 0],   sx: 0.0,  tilt: 0.0,   rot: Math.PI * 2 },
-      { cam: [0, 30, 40],     look: [0, 8, 0],    sx: 0.0,  tilt: 0.0,   rot: Math.PI * 2.2 },
+      { cam: [0, 8, 60],      look: [0, 9, 0],    sx: 0.0,  tilt: 0.0,   rot: Math.PI * 3.0 },
+      { cam: [0, 8, 60],      look: [0, 9, 0],    sx: 0.0,  tilt: 0.0,   rot: Math.PI * 3.0 },
     ],
   };
   const lerp = (a, b, t) => a + (b - a) * t;
   const smooth = (t) => t * t * (3 - 2 * t);
   const look = new THREE.Vector3(), fwd = new THREE.Vector3(), right = new THREE.Vector3(), off = new THREE.Vector3();
   const lv = new THREE.Vector3();
+  const GLOBE_C = new THREE.Vector3(), gP = new THREE.Vector3();
   const pointer = { x: 0, y: 0 };
 
   let idleRot = 0;
@@ -494,6 +620,46 @@ export async function createCity(model, { stats = [] } = {}) {
 
     pivot.rotation.z = lerp(A.tilt, B.tilt, t);
     city.rotation.y = lerp(A.rot, B.rot, t) + idleRot;
+
+    // snow globe → Earth → horizon, as one object:
+    //   3.28–3.62  the glass frosts over into the planet from the top down (the Earth sits exactly on the glass);
+    //              as the frost line reaches the pedestal, the pedestal crumbles away into specks
+    //   3.60–3.66  behind the finished Earth, the city shrinks away
+    //   3.64–4.00  the same sphere glides down and swells into a horizon just below the middle
+    const reveal = smooth(Math.min(1, Math.max(0, (c - 3.28) / 0.34)));
+    const absorb = smooth(Math.min(1, Math.max(0, (c - 3.6) / 0.06)));
+    // the instant the Earth starts to form, the whole snow globe crumbles to dust (gone by ~1/3 of the reveal)
+    dustU.value = Math.min(1.5, Math.max(0, reveal / 0.55) * 1.5);
+    specks.visible = dustU.value > 0 && dustU.value < 1.45;
+    const settle = smooth(Math.min(1, Math.max(0, (c - 3.64) / 0.36)));
+    const sGlobe = 1 - absorb;
+    city.scale.setScalar(Math.max(0.0001, sGlobe));
+    city.position.y = GY - 6.1 - sGlobe * GY;      // keeps the globe centre fixed while scaling
+    city.visible = sGlobe > 0.002 && dustU.value < 1.45;
+    if (dustU.value > 0) { city.updateWorldMatrix(true, false); dustInv.value.copy(city.matrixWorld).invert(); }
+    globe.group.visible = reveal > 0.001;
+    if (globe.group.visible) {
+      const asp = camera.aspect, tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      globeCam.left = -asp; globeCam.right = asp; globeCam.updateProjectionMatrix();
+      // start: exactly over the snow globe's glass (screen units)
+      GLOBE_C.set(0, GY, 0);
+      const d = camera.position.distanceTo(GLOBE_C);
+      gP.copy(GLOBE_C).project(camera);
+      const r0 = Math.tan(Math.asin(Math.min(0.99, GR / d))) / tanH;
+      // end: a horizon whose crest sits just below the middle and drops ~27% of the height by the
+      // screen edges (phones: lower, flatter crest under the map's rows)
+      const phone = asp < 0.85;
+      const crest = phone ? -0.46 : -0.2, drop = 0.54;
+      const r1 = Math.max(phone ? 1.2 : 1.6, (asp * asp + drop * drop) / (2 * drop));
+      const x = lerp(gP.x * asp, 0, settle), y = lerp(gP.y, crest - r1, settle), r = lerp(r0, r1, settle);
+      globe.group.position.set(x, y, 0);
+      globe.group.scale.setScalar(r);
+      globe.setReveal(reveal);
+      globe.setScroll(c);                     // turns from the first frost on
+      // faces the viewer inside the snow globe, then tips up so the band under the crest faces us
+      const focus = Math.min(0.97, Math.max(0, (r1 - (phone ? 0.2 : 0.24)) / r1));
+      globe.setTilt(settle * Math.asin(focus));
+    }
 
 
     rise = Math.min(1.2, Math.max(0, c - 0.12) * 1.25);
@@ -532,6 +698,9 @@ export async function createCity(model, { stats = [] } = {}) {
     }
     return id >= 0;
   }
+  /** Canvas height in device pixels (for the specks' point size). */
+  function setPixelHeight(px) { specks.material.uniforms.uScale.value = (px * 0.5) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)); }
+
   /** Per-frame: idle spin, snow, hover lifts. Returns true to keep the loop running. */
   function tick(dt) {
     let moving = false;
@@ -546,12 +715,24 @@ export async function createCity(model, { stats = [] } = {}) {
       if (Math.abs(d) > 0.002) { lift[i] += d * Math.min(1, dt * 10); moving = true; }
       else lift[i] = liftTarget[i];
     }
+    if (globe.group.visible) { globe.setProgress(worldState.p); globe.tick(dt); moving = true; }
     if (moving) layout();
     return moving;
   }
 
-  const setTheme = (dark) => { ringPainters.forEach((p) => p(dark)); cityNight.value = dark ? 1 : 0; };
-  return { scene, camera, pose, hover, tick, setTheme, ring: ringState, towerModel: gltf.scene };
+  const setTheme = (dark) => { ringPainters.forEach((p) => p(dark)); cityNight.value = dark ? 1 : 0; globe.setTheme(dark); };
+  /** Draw the city, then the Earth on top (its own pass, so it never clips into the glass). */
+  function render(renderer) {
+    renderer.render(scene, camera);
+    if (!globe.group.visible) return;
+    const ac = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.clearDepth();
+    renderer.render(globeScene, globeCam);
+    renderer.autoClear = ac;
+  }
+  dustify(city);   // every city material crumbles with the snow globe (glass + specks have it built in)
+  return { scene, camera, globeScene, globeCam, pose, hover, tick, setTheme, render, setPixelHeight, ring: ringState, world: worldState, towerModel: gltf.scene };
 }
 
 /** Original globe flake: soft white with a faint lilac rim so it reads on the pale city. */

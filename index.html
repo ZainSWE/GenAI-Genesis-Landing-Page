@@ -3,8 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GenAI Genesis 2027</title>
-<meta name="description" content="GenAI Genesis brings together students, researchers, designers, and creators from around the world for an immersive AI hackathon in Toronto, January 2027.">
+<title>GenAI Genesis 2027 | Canada’s Largest AI Hackathon</title>
+<meta name="description" content="Canada’s largest AI hackathon returns in 2027 for 36 hours of building in Toronto. Join the waitlist to be first to know when applications open.">
+<meta name="theme-color" content="#eed4fd">
+<meta name="application-name" content="GenAI Genesis 2027">
+<meta name="author" content="GenAI Genesis 2027">
+<meta name="keywords" content="GenAI Genesis,GenAI Genesis 2027,AI hackathon,generative AI,Toronto hackathon,Canada AI hackathon,student hackathon,artificial intelligence">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="GenAI Genesis 2027 | Canada’s Largest AI Hackathon">
+<meta property="og:description" content="Canada’s largest AI hackathon returns in 2027 for 36 hours of building in Toronto. Join the waitlist to be first to know when applications open.">
+<meta property="og:url" content="https://genaigenesis.ca">
+<meta property="og:site_name" content="GenAI Genesis 2027">
+<meta property="og:locale" content="en_CA">
+<meta property="og:image" content="https://genaigenesis.ca/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="GenAI Genesis 2027 — Canada’s Largest AI Hackathon">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="GenAI Genesis 2027 | Canada’s Largest AI Hackathon">
+<meta name="twitter:description" content="Canada’s largest AI hackathon returns in 2027 for 36 hours of building in Toronto. Join the waitlist to be first to know when applications open.">
+<meta name="twitter:image" content="https://genaigenesis.ca/og-image.png">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400..800&display=swap">
@@ -34,7 +55,7 @@
 
 <header class="nav-wrap">
   <nav class="nav" aria-label="Primary">
-    <a class="nav-logo" href="#top" aria-label="GenAI Genesis home">GenAI<span>Genesis</span></a>
+    <a class="nav-logo" href="#top" aria-label="GenAI Genesis home"><span class="nav-brand-icon" aria-hidden="true"></span><span class="nav-brand-name">GenAI<span>Genesis</span></span></a>
     <ul class="nav-links" id="nav-links">
       <li><a href="#top" class="is-active" data-label="Home">Home</a></li>
       <li><a href="#about" data-label="About">About</a></li>
@@ -43,7 +64,7 @@
       <li><a href="#faq" data-label="FAQ">FAQ</a></li>
     </ul>
     <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode"><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z" fill="currentColor"/></svg><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.4" fill="currentColor"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-    <a class="btn btn-mint nav-cta" href="#apply">Apply</a>
+    <a class="btn btn-mint nav-cta" href="#apply" data-soon="Opens 2nd week of Jan">Apply</a>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">
       <span class="sr-only">Menu</span><i></i><i></i>
     </button>
@@ -57,14 +78,25 @@
 
     <section class="chapter hero" id="top" data-chapter="hero" data-nav="top">
       <div class="hero-copy">
-        <p class="eyebrow">Toronto · Jan 2027</p>
+        <p class="eyebrow">Toronto · March 2027</p>
         <h1 class="display">Build what<br>comes <em>next.</em></h1>
         <p class="lede">Bringing together 1000+ students, researchers, designers, and creators from around the world for Canada's largest AI hackathon.</p>
         <div class="btn-row">
-          <a class="btn btn-ink" href="#apply">Become a judge</a>
-          <a class="btn btn-glass" href="#sponsors">Partner with us</a>
+          <a class="btn btn-ink" href="#apply" data-soon="Opens Nov–Dec">Become a judge</a>
+          <a class="btn btn-glass" href="#partnership-enquiry" data-partnership-trigger>Partner with us</a>
         </div>
-        <p class="hint">Hacker applications open the first week of January.</p>
+        <!-- Waitlist: set where it submits in landing/main.js (FORM_ENDPOINTS.waitlist) -->
+        <div class="hacker-signup">
+          <form id="waitlist" novalidate>
+            <label for="hacker-email">Get notified when hacker applications open</label>
+            <div class="hacker-signup-fields">
+              <input id="hacker-email" type="email" autocomplete="email" placeholder="Your email address" required maxlength="254" name="email">
+              <button class="btn btn-mint" type="submit">Notify me</button>
+            </div>
+            <p class="hacker-signup-status" data-status role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <p class="hint">Hacker applications open the second week of January.</p>
       </div>
 
       <div class="ticker" aria-label="GenAI Genesis at a glance">
@@ -89,7 +121,9 @@
       <div class="split-text" data-reveal="left" data-story>
         <header class="sc-top"><span class="sc-tag"><i></i>About GenAI Genesis</span></header>
         <h2 class="sc-title">Canada's Largest AI <em>Hackathon.</em></h2>
-        <p class="sc-body">Over one weekend, teams explore new tech, learn from industry experts, and build working prototypes around problems they care about.</p>
+        <p class="sc-body">GenAI Genesis is a 36-hour AI hackathon taking place in March 2027 at the University of Toronto in downtown Toronto.</p>
+        <p class="sc-body">Over an intense weekend of building and learning, you’ll collaborate with top mentors, engineers, and industry leaders to build working prototypes, take part in hands-on workshops, and present your projects to judges.</p>
+        <p class="sc-body">We exist to empower the next generation of builders to use AI collaboratively, responsibly, and at scale. AI is changing how the world works. We want students to have a hand in deciding what comes next.</p>
         <ul class="sc-meta" aria-label="Who takes part"><li>Students</li><li>Researchers</li><li>Designers</li><li>Creators</li></ul>
       </div>
     </section>
@@ -99,6 +133,7 @@
       <div class="split-text" data-reveal="left" data-story>
         <header class="sc-top"><span class="sc-tag"><i></i>Growing through every edition</span></header>
         <h2 class="sc-title" id="stats-title">GenAI Genesis 2026, by the <em>numbers.</em></h2>
+        <p class="sc-body">Last time, GenAI Genesis brought together:</p>
       </div>
       <ul class="stat-col">
         <li class="stat" data-reveal="right"><b data-count="1000">1,000+</b><span>Hackers, judges &amp; volunteers</span></li>
@@ -114,14 +149,15 @@
       <div class="split-text" data-reveal="left" data-story>
         <header class="sc-top"><span class="sc-tag"><i></i>Toronto: built around innovation</span></header>
         <h2 class="sc-title">A city moving at the speed of <em>AI.</em></h2>
-        <p class="sc-body">AI's deep learning breakthrough began in Toronto in 2012 with the creation of AlexNet. GenAI Genesis now brings the next generation of builders back to the city where it all started.</p>
+        <p class="sc-body">Toronto helped lay the foundations for today’s AI boom: AlexNet, the 2012 deep learning breakthrough by Geoffrey Hinton, Alex Krizhevsky, and Ilya Sutskever, was built at the University of Toronto.</p>
+        <p class="sc-body">Today the Vector Institute keeps that research connected to industry, and GenAI Genesis invites the world to build what comes next, here.</p>
         <ul class="sc-meta" aria-label="Where and when"><li>Toronto, Ontario</li><li>March 2027</li></ul>
       </div>
     </section>
   </div>
 
   <!-- ============ AI HAS NO BORDERS: subway line ============ -->
-  <section class="borders" id="borders" data-nav="about" aria-labelledby="borders-title">
+  <section class="borders" id="borders" data-chapter="world" data-nav="about" aria-labelledby="borders-title">
     <div class="borders-pin">
       <div class="wrap borders-head halo">
         <p class="eyebrow">AI has no borders</p>
@@ -164,18 +200,42 @@
     </div>
   </section>
 
-  <!-- ============ PARTNERS + logo marquee ============ -->
+  <!-- ============ PARTNERS + sponsor wall ============ -->
   <section class="section partners" id="sponsors" data-nav="sponsors" aria-labelledby="sponsors-title">
-    <div class="wrap partners-copy" data-reveal="up">
-      <p class="eyebrow">Partner with GenAI Genesis</p>
-      <h2 class="h2" id="sponsors-title">Meet the people building the next wave of AI.</h2>
-      <p>Sponsors mentor teams, run workshops, and meet emerging AI talent from universities worldwide.</p>
-      <a class="btn btn-ink" href="#apply">Partner with us</a>
+    <div class="wrap partners-copy">
+      <div class="partners-intro" data-reveal="up">
+        <p class="eyebrow">Partner with GenAI Genesis</p>
+        <h2 class="h2" id="sponsors-title">Meet the people building the next wave of AI.</h2>
+        <p>Sponsors mentor teams, run workshops, and meet emerging AI talent from universities worldwide.</p>
+      </div>
+      <!-- Partnership enquiry: set where it submits in landing/main.js (FORM_ENDPOINTS.partner) -->
+      <div class="partnership-enquiry" id="partnership-enquiry" data-open="false">
+        <button class="btn btn-ink enquiry-trigger" type="button" aria-expanded="false" aria-controls="partnership-form-panel">Partner with us</button>
+        <div class="enquiry-reveal" id="partnership-form-panel" inert>
+          <div class="enquiry-clip">
+            <div class="enquiry-card">
+              <div class="enquiry-heading">
+                <h3 id="enquiry-title">Partnership enquiry</h3>
+                <button class="enquiry-close" type="button" aria-label="Close partnership enquiry"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+              </div>
+              <form id="enquiry-form" novalidate aria-labelledby="enquiry-title">
+                <div class="enquiry-fields">
+                  <div class="enquiry-field"><label for="enquiry-name">Name <span aria-hidden="true">*</span></label><input id="enquiry-name" type="text" autocomplete="name" maxlength="200" required name="name"></div>
+                  <div class="enquiry-field"><label for="enquiry-email">Email <span aria-hidden="true">*</span></label><input id="enquiry-email" type="email" autocomplete="email" maxlength="254" required name="email"></div>
+                  <div class="enquiry-field"><label for="enquiry-company">Company <span aria-hidden="true">*</span></label><input id="enquiry-company" type="text" autocomplete="organization" maxlength="200" required name="company"></div>
+                </div>
+                <button class="btn btn-ink enquiry-submit" type="submit">Submit enquiry</button>
+                <p class="enquiry-notice" data-status role="status" aria-live="polite"></p>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="marquee" aria-label="Past sponsors">
-      <p class="marquee-label">Past sponsors & Partners</p>
-      <div class="marquee-viewport">
-        <ul class="marquee-track" id="marquee"><!-- filled by main.js --></ul>
+    <div class="sponsors-wall" aria-labelledby="past-sponsors-title">
+      <div class="wrap">
+        <h2 class="sponsors-wall-title" id="past-sponsors-title">Past sponsors &amp; partners</h2>
+        <div id="sponsor-tiers"><!-- filled by main.js --></div>
       </div>
     </div>
   </section>
@@ -190,9 +250,9 @@
         <p class="egg-hint" id="egg-hint"><span>These candids are locked. Find the 3 easter eggs hidden around the site to unlock them.</span> <b><span class="grad"><span id="egg-count">0</span>/3 found</span></b></p>
       </div>
       <ul class="polaroids">
-        <li class="polaroid p1 locked" data-reveal="left" data-egg="dog"><div class="photo ph-mint"><span>Photo: therapy dogs</span><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Therapy dogs</p></li>
-        <li class="polaroid p2 locked" data-reveal="up" data-egg="chip"><div class="photo ph-lilac"><span>Photo: poker night</span><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Poker nights</p></li>
-        <li class="polaroid p3 locked" data-reveal="right" data-egg="ramen"><div class="photo ph-peach"><span>Photo: ramen battle</span><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Spicy ramen battles</p></li>
+        <li class="polaroid p1 locked" data-reveal="left" data-egg="dog"><div class="photo ph-mint"><img src="assets/side-quests/therapy-dogs.webp" alt="A hacker petting a therapy dog during GenAI Genesis" loading="lazy" decoding="async"><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Taking a therapy dog break</p></li>
+        <li class="polaroid p2 locked" data-reveal="up" data-egg="chip"><div class="photo ph-lilac"><img src="assets/side-quests/networking.webp" alt="Hackers networking with sponsors at GenAI Genesis" loading="lazy" decoding="async"><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Chatting with teams from leading companies</p></li>
+        <li class="polaroid p3 locked" data-reveal="right" data-egg="ramen"><div class="photo ph-peach"><img src="assets/side-quests/ramen-challenge.webp" alt="Hackers competing in a spicy ramen challenge" loading="lazy" decoding="async"><div class="lock" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2"/></svg><span>Locked</span></div></div><p>Trivia winners take on spicy ramen</p></li>
       </ul>
       <p class="quests-foot">Every great hackathon needs a few stories that don't fit in the submission form :)</p>
     </div>
@@ -207,12 +267,17 @@
         <h2 class="h2" id="faq-title">Questions, answered.</h2>
       </div>
       <div class="faq-list" data-reveal="right">
-        <details open><summary><span>Who can apply?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Students, researchers, designers, and creators. No prior AI experience needed.</p></div></details>
-        <details><summary><span>How much does it cost?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Nothing. It's free for accepted hackers, meals included.</p></div></details>
-        <details><summary><span>Do I need a team?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>No. Apply solo and meet teammates at team formation on day one.</p></div></details>
-        <details><summary><span>When do applications open?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Judges: November–December. Hackers: the first week of January 2027.</p></div></details>
-        <details><summary><span>Where is it held?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>In Toronto. Accepted participants get venue and travel details.</p></div></details>
-        <details><summary><span>How can my company get involved?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Sponsor a challenge, run a workshop, mentor, or judge. Tap "Partner with us".</p></div></details>
+        <details open><summary><span>Who can participate?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>We welcome applicants from Canada and around the world, at all skill levels. If you’re curious about AI and excited to build something, we’d love to hear from you.</p></div></details>
+        <details><summary><span>Do I need AI or programming experience?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>No prior AI experience is required! Some programming knowledge can help, but it’s not a requirement. You’ll have access to resources and mentors to help you along the way.</p></div></details>
+        <details><summary><span>Do I need a team before applying?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Nope! Everyone applies individually, and we’ll help you find teammates. If you already have a team in mind, make sure each member submits their own application.</p></div></details>
+        <details><summary><span>How many people can be on a team?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Teams can have up to four people, from any school, country, or experience level. Just make sure everyone is participating in the same format, in-person hackers team up with other in-person hackers, and virtual hackers team up with other virtual hackers.</p></div></details>
+        <details><summary><span>Is the hackathon in person or online?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Both! You can join us in person at the University of Toronto’s St. George campus or participate online. Please choose one format when applying, we don’t accept applications for both.</p></div></details>
+        <details><summary><span>When is the hackathon?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>GenAI Genesis returns in March 2027! Follow us on Instagram for the exact dates and schedule.</p></div></details>
+        <details><summary><span>How long is the hackathon?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>You’ll have 36 hours to work on your project. Plan to stick around afterwards for the closing ceremony and awards!</p></div></details>
+        <details><summary><span>When do hacker applications open?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Follow us on Instagram to hear when applications open. If you have any questions in the meantime, reach out at <a href="mailto:contact@genaigenesis.ca">contact@genaigenesis.ca</a>.</p></div></details>
+        <details><summary><span>How do I apply?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>Once applications open, you’ll find the application form right here on our website.</p></div></details>
+        <details><summary><span>How much does it cost?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>It’s completely free to participate! We’ll also provide resources and mentorship to support you throughout the weekend.</p></div></details>
+        <details><summary><span>Is acceptance guaranteed?</span><i class="chev" aria-hidden="true"></i></summary><div class="faq-a"><p>We review every application, but submitting one doesn’t guarantee a spot. You don’t need an impressive AI resume to apply, we welcome beginners, too.</p></div></details>
       </div>
     </div>
   </section>
@@ -221,20 +286,20 @@
   <section class="finale" id="apply" data-nav="apply" aria-labelledby="crew-title">
     <div class="finale-pin">
       <div class="finale-copy crew-copy halo" id="crew-copy">
-        <p class="eyebrow">Meet the team</p>
-        <h2 class="h2" id="crew-title">Your crew for GenAI Genesis 2027.</h2>
-        <p class="crew-count"><b id="crew-n">0</b> of <span id="crew-total">8</span> on board</p>
+        <p class="eyebrow">There’s room for you here.</p>
+        <h2 class="h2" id="crew-title">A lot can happen in 36 hours.</h2>
       </div>
       <div class="finale-copy cta-copy" id="cta-copy">
         <p class="eyebrow">Now boarding</p>
         <h2 class="display finale-title">Next stop: <em>GenAI&nbsp;Genesis.</em></h2>
-        <p class="lede">Toronto · January 2027. Choose how you're getting on.</p>
+        <p class="lede">Toronto · March 2027. Choose how you're getting on.</p>
         <div class="btn-row">
-          <a class="btn btn-mint" href="#apply" data-soon="Opens 1st week of Jan">Apply as a hacker</a>
+          <a class="btn btn-mint" href="#apply" data-soon="Opens 2nd week of Jan">Apply as a hacker</a>
           <a class="btn btn-ink" href="#apply" data-soon="Opens Nov–Dec">Become a judge</a>
-          <a class="btn btn-glass" href="#sponsors">Partner with us</a>
+          <a class="btn btn-glass" href="#partnership-enquiry" data-partnership-trigger>Partner with us</a>
         </div>
       </div>
+      <p class="sr-only">Profile icons represent the organizing team.</p>
       <div class="crew-labels" id="crew-labels" aria-hidden="true"></div>
       <ul class="sr-only" id="crew-list"><!-- team list for screen readers --></ul>
     </div>
@@ -243,7 +308,7 @@
 
 <footer class="footer">
   <div class="wrap footer-inner">
-    <p class="footer-logo">GenAI<span>Genesis</span></p>
+    <a class="footer-logo" href="#top" aria-label="GenAI Genesis home"><span class="nav-brand-icon" aria-hidden="true"></span></a>
     <p>Toronto, Ontario · © 2027 GenAI Genesis</p>
     <button class="egg egg-chip" type="button" data-egg="chip" aria-label="Easter egg: a CN Tower poker chip"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="#E2231A"/><circle cx="24" cy="24" r="17.5" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="6.2 7.5"/><circle cx="24" cy="24" r="12.5" fill="#fff"/><path d="M23.4 12.5h1.2l.4 9h1.7l.6 2.4h-1.3l.9 11.6h-5.8l.9-11.6h-1.3l.6-2.4h1.7z" fill="#0D0B16"/></svg></button>
     <ul>

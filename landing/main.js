@@ -3,7 +3,8 @@
  *
  *  Lenis smooth scroll ─► update() per frame while scrolling
  *     ├─ story chapters  → Toronto city: camera pose, city turning, buildings rising
- *     ├─ borders section → metro map: scroll moves along the line, stations swell; backdrop turns white
+ *     ├─ borders section → metro map: scroll moves along the line, stations swell; backdrop turns white;
+ *     │                    the snow globe becomes the Earth along the bottom, turning with the line
  *     └─ finale          → subway train: windows reveal the team, then the CTA
  *  The city renders on demand (scroll / hover). The train runs a frame loop only
  *  while the finale is on screen, so its wind keeps blowing when you stop scrolling.
@@ -17,7 +18,6 @@ import Lenis from "lenis";
 import { createCity, PASTEL } from "./city.js";
 import { createStreetcar } from "./streetcar.js";
 import { createBackdrop } from "./backdrop.js";
-import { LOGOS } from "./logos.js";
 import { createFerry } from "./ferry.js";
 
 const reduced = document.documentElement.classList.contains("reduced-motion");
@@ -56,7 +56,7 @@ const metroSvg = metro.querySelector("svg");
 const [metroTrack, metroDone] = metro.querySelectorAll("path");
 const metroLabel = metro.querySelector(".metro-label");
 const stopEls = [...line.children];
-let metroPts = [], metroLen = 0, metroHover = -1, metroShown = -1, metroHeadBottom = 0;
+let metroPts = [], metroLen = 0, metroHover = -1, metroShown = -1, metroHeadBottom = 0, metroKey = "";
 function roundedPath(pts, r) {
   let d = `M${pts[0][0]},${pts[0][1]}`;
   for (let i = 1; i < pts.length - 1; i++) {
@@ -72,6 +72,11 @@ function layoutMetro() {
   if (!W || !H) return;
   const head = $(".borders-head").getBoundingClientRect(), box = metro.getBoundingClientRect();
   const hb = head.bottom - box.top;                       // heading bottom inside the map
+  // the path sampling below is heavy (thousands of getPointAtLength calls): only redo it when the
+  // map's size or heading actually moved, not on every page-height change (logos loading, FAQ rows…)
+  const key = `${W}x${H}x${Math.round(hb)}`;
+  if (key === metroKey) return;
+  metroKey = key;
   metroHeadBottom = hb;
   const gx = Math.max(24, Math.min(W * 0.06, (W - 1180) / 2 + 40));
   let pts, fixed = null;
@@ -226,7 +231,6 @@ const TEAM = [
   { name: "Name TBD", role: "VC Logistics" }, { name: "Name TBD", role: "VC Marketing" },
   { name: "Name TBD", role: "VC Technology" }, { name: "Name TBD", role: "VC Finance" },
 ];
-$("#crew-total").textContent = TEAM.length;
 $("#crew-list").innerHTML = TEAM.map((m) => `<li>${m.name}, ${m.role}</li>`).join("");
 const labelEls = TEAM.map((m) => {
   const el = document.createElement("div");
@@ -236,24 +240,128 @@ const labelEls = TEAM.map((m) => {
   return el;
 });
 
-// Sponsor marquee (white logos). Wordmarks in type are stand-ins until official SVGs are added.
-const SPONSORS = [
-  { id: "google", svg: LOGOS.google, name: "Google" },
-  { id: "intuit", svg: LOGOS.intuit, name: "Intuit" },
-  { id: "amd", svg: LOGOS.amd, name: "AMD" },
-  { id: "pwc", text: "pwc", name: "PwC" },
-  { id: "un", svg: LOGOS.un, text: "United Nations", name: "United Nations" },
-  { id: "cohere", svg: LOGOS.cohere, name: "Cohere" },
-  { id: "rbc", text: "RBC", name: "RBC" },
-  { id: "td", text: "TD Bank", name: "TD Bank" },
-  { id: "sunlife", text: "Sun Life", name: "Sun Life" },
-  { id: "shopify", svg: LOGOS.shopify, text: "Shopify", name: "Shopify" },
-  { id: "ibm", svg: LOGOS.ibm, name: "IBM" },
-  { id: "georgia", text: "Georgia", name: "Georgia" },
-  { id: "vector", text: "Vector Institute", name: "Vector Institute" },
+// Past sponsors & partners, by tier (same list, links and order as genaigenesis.ca).
+// Logos are the white SVGs in assets/sponsors/; if one is missing, its name shows in type instead.
+const SPONSOR_TIERS = [
+  ["gold", "Gold sponsors", "2026", [["td", "TD", "https://www.td.com/"]]],
+  ["silver", "Silver sponsors", "2026", [["sunlife", "Sunlife", "https://www.sunlife.ca/"], ["bitdeer", "Bitdeer AI", "https://www.bitdeer.ai/"]]],
+  ["bronze", "Bronze sponsors", "2026", [["amd", "AMD", "https://www.amd.com/"], ["intuit", "Intuit", "https://www.intuit.com/ca/"]]],
+  ["partners", "Partners", "2026", [["google", "Google", "https://about.google/"], ["shopify", "Shopify", "https://www.shopify.com/"],
+    ["vector", "Vector Institute", "https://vectorinstitute.ai/"], ["ibm", "IBM", "https://www.ibm.com/"], ["georgian", "Georgian", "https://georgian.io/"]]],
+  ["startups", "Startup sponsors", "2026", [["borderpass", "BorderPass", "https://www.borderpass.ai/"], ["yellowcake", "Yellowcake", "https://yellowcake.dev/"],
+    ["elevenlabs", "ElevenLabs", "https://elevenlabs.io/"], ["moorcheh", "Moorcheh.ai", "https://moorcheh.ai/"], ["jobster", "Jobster.io", "https://jobster.io/"],
+    ["railtown", "Railtown", "https://railtown.ai/"], ["trendmicro", "Trend Micro", "https://www.trendmicro.com/"], ["blueoceangames", "Blue Ocean Games", "https://blueoceangames.com/"]]],
+  ["earlier", "Earlier editions", "2025", [["rbc", "RBC", "https://www.rbc.com/"], ["pwc", "PwC", "https://www.pwc.com/ca/en.html"],
+    ["cohere", "Cohere", "https://cohere.com/"], ["unac", "United Nations Association in Canada", "https://www.unac.org/"]]],
 ];
-const logoHTML = (s, hidden) => `<li class="logo l-${s.id}"${hidden ? ' aria-hidden="true"' : ` aria-label="${s.name}"`}>${s.svg || ""}${s.text ? `<span class="wordmark${s.svg ? " light" : ""}">${s.text}</span>` : ""}</li>`;
-$("#marquee").innerHTML = SPONSORS.map((s) => logoHTML(s, false)).join("") + SPONSORS.map((s) => logoHTML(s, true)).join("");
+$("#sponsor-tiers").innerHTML = SPONSOR_TIERS.map(([key, title, year, list]) =>
+  `<section class="sponsor-tier sponsor-tier-${key}" aria-labelledby="sponsor-tier-${key}" data-logos><h3 id="sponsor-tier-${key}">${title} <span>${year}</span></h3>` +
+  `<ul class="sponsor-logos">${list.map(([id, name, href], k) =>
+    `<li data-sponsor="${id}" style="--k:${k + 1}"><a href="${href}" target="_blank" rel="noopener noreferrer" aria-label="${name} (opens in a new tab)">` +
+    `<img alt="${name}" loading="lazy" decoding="async" width="240" height="96" src="assets/sponsors/${id}.svg"></a></li>`).join("")}</ul></section>`).join("");
+// candid photos: if one isn't in assets/side-quests/ yet, the card keeps its pastel placeholder
+$$(".polaroid .photo img").forEach((img) => {
+  const drop = () => img.remove();
+  if (img.complete && !img.naturalWidth) drop(); else img.addEventListener("error", drop, { once: true });
+});
+// Optical sizing: the logos come in every shape (a square crest, a long thin wordmark, artwork
+// with padding baked in), so one fixed height makes some look huge and others tiny. Each logo is
+// sized by the area of its visible ink instead (measured from the image), so every logo in a tier
+// carries about the same visual weight. LOGO_TUNE nudges unusually light or heavy marks by eye.
+const LOGO_TUNE = { vector: 1.4, ibm: 0.86, borderpass: 0.84, rbc: 0.88, td: 0.92 };
+function inkBox(img) {
+  if (img._ink) return img._ink;
+  const W = 240, H = Math.max(1, Math.round(W * img.naturalHeight / img.naturalWidth));
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  try {
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(img, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (d[(y * W + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+  } catch (e) { /* unreadable: treat the whole image as ink */ }
+  if (x1 < 0) return (img._ink = { fx: 1, fy: 1, cx: 0.5, cy: 0.5, r: W / H });
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+  return (img._ink = { fx: bw / W, fy: bh / H, cx: (x0 + bw / 2) / W, cy: (y0 + bh / 2) / H, r: bw / bh });
+}
+function sizeLogo(img) {
+  if (!img.isConnected || !img.naturalWidth) return;
+  const li = img.closest("li"), a = img.parentElement;
+  const H = parseFloat(getComputedStyle(li).getPropertyValue("--logo-h")) || 76;
+  const ink = inkBox(img), m = LOGO_TUNE[li.dataset.sponsor] || 1;
+  let ch = H * Math.sqrt(0.9 / ink.r) * m, cw = ch * ink.r;          // equal ink area across shapes
+  const maxW = a.clientWidth - 24;                                    // the link's 12px padding each side
+  if (cw > maxW) { ch *= maxW / cw; cw = maxW; }
+  if (ch > H) { cw *= H / ch; ch = H; }
+  // the image box includes any baked-in padding; negative margins keep its footprint to the ink,
+  // and a translate centres the ink itself
+  const bw = cw / ink.fx, bh = ch / ink.fy;
+  Object.assign(img.style, {
+    width: `${bw.toFixed(1)}px`, height: `${bh.toFixed(1)}px`, maxWidth: "none",
+    margin: `${(-(bh - ch) / 2).toFixed(1)}px ${(-(bw - cw) / 2).toFixed(1)}px`,
+    translate: `${((0.5 - ink.cx) * bw).toFixed(1)}px ${((0.5 - ink.cy) * bh).toFixed(1)}px`,
+  });
+}
+$$(".sponsor-logos img").forEach((img) => {
+  const fallback = () => { const w = document.createElement("span"); w.className = "wordmark"; w.textContent = img.alt; img.replaceWith(w); };
+  if (img.complete && !img.naturalWidth) fallback(); else img.addEventListener("error", fallback, { once: true });
+  // measured in idle time, never mid-scroll
+  if (img.complete && img.naturalWidth) whenIdle(() => sizeLogo(img)); else img.addEventListener("load", () => whenIdle(() => sizeLogo(img)), { once: true });
+});
+// fetch the logos once the page has settled, so they're loaded and sized long before you scroll to them
+addEventListener("load", () => whenIdle(() => $$(".sponsor-logos img").forEach((img) => { img.loading = "eager"; })), { once: true });
+let logoResize = 0;
+addEventListener("resize", () => { clearTimeout(logoResize); logoResize = setTimeout(() => $$(".sponsor-logos img").forEach(sizeLogo), 150); });
+
+/* -------------------------------------------------------------------- forms */
+// Where the waitlist and partnership forms POST (JSON). Left empty, they open a pre-filled email
+// to contact@genaigenesis.ca instead, so nothing is lost before an endpoint exists.
+// TODO: paste your form endpoints here (e.g. Formspree, a Google Apps Script web app, your API).
+const FORM_ENDPOINTS = { waitlist: "", partner: "" };
+const CONTACT = "contact@genaigenesis.ca";
+function wireForm(form, key, subject, ok) {
+  if (!form) return;
+  const status = form.querySelector("[data-status]");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    const data = Object.fromEntries(new FormData(form));
+    if (!FORM_ENDPOINTS[key]) {
+      const body = Object.entries(data).map(([k, v]) => `${k}: ${v}`).join("\n");
+      location.href = `mailto:${CONTACT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      status.textContent = `Your email app should open. If it doesn't, write to ${CONTACT}.`;
+      return;
+    }
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true; status.textContent = "Sending…";
+    try {
+      const res = await fetch(FORM_ENDPOINTS[key], { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(data) });
+      if (!res.ok) throw new Error(String(res.status));
+      form.reset(); status.textContent = ok;
+    } catch (err) {
+      status.textContent = `Something went wrong. Please email ${CONTACT}.`;
+    } finally { btn.disabled = false; }
+  });
+}
+wireForm($("#waitlist"), "waitlist", "Notify me when hacker applications open", "You're on the list. We'll email you when hacker applications open.");
+wireForm($("#enquiry-form"), "partner", "Partnership enquiry", "Thanks! Our partnerships team will be in touch.");
+
+// Partnership enquiry: the "Partner with us" button opens the form in place; other "Partner with us"
+// buttons on the page scroll here and open it.
+const enquiry = $("#partnership-enquiry");
+const enquiryTrigger = enquiry.querySelector(".enquiry-trigger"), enquiryPanel = $("#partnership-form-panel");
+function setEnquiry(open, focus = true) {
+  enquiry.dataset.open = String(open);
+  enquiryTrigger.setAttribute("aria-expanded", String(open));
+  enquiryPanel.inert = !open;
+  if (open && focus) setTimeout(() => $("#enquiry-name").focus({ preventScroll: true }), 320);
+  else if (!open && focus) enquiryTrigger.focus({ preventScroll: true });
+}
+enquiryTrigger.addEventListener("click", () => setEnquiry(true));
+enquiry.querySelector(".enquiry-close").addEventListener("click", () => setEnquiry(false));
+enquiry.addEventListener("keydown", (e) => { if (e.key === "Escape" && enquiry.dataset.open === "true") setEnquiry(false); });
 
 /* -------------------------------------------------------------- hero ticker */
 // Repeat the stat strip until one copy is wider than the screen, then double it,
@@ -280,7 +388,7 @@ addEventListener("resize", () => { if (Math.abs(innerWidth - tickerW) > 40) { ti
 const EGG_KEY = "gag-eggs-v1";
 const EGGS = {
   dog: { what: "the pup", card: "Therapy dogs" },
-  chip: { what: "the lucky chip", card: "Poker nights" },
+  chip: { what: "the lucky chip", card: "Networking" },
   ramen: { what: "the ramen bowl", card: "Spicy ramen battles" },
 };
 const eggTotal = Object.keys(EGGS).length;
@@ -294,6 +402,23 @@ function showEggToast(html) {
   eggToast.innerHTML = html; eggToast.classList.add("show");
   clearTimeout(eggToastTimer); eggToastTimer = setTimeout(() => eggToast.classList.remove("show"), 3200);
 }
+// Locked candids lie face-down as playing cards. Each back shows the egg that unlocks it
+// (the same illustration you hunt for on the page), and the card flips over once it's found.
+$$(".polaroid[data-egg]").forEach((card) => {
+  const k = card.dataset.egg;
+  const flip = document.createElement("div"); flip.className = "flip";
+  const front = document.createElement("div"); front.className = "face front";
+  front.append(...card.childNodes);
+  const back = document.createElement("div"); back.className = "face back"; back.setAttribute("aria-hidden", "true");
+  back.innerHTML = `<span class="pip">?</span><span class="seal"></span><span class="find">Find ${EGGS[k].what}</span><span class="pip pip-b">?</span>`;
+  const art = document.querySelector(`.egg[data-egg="${k}"] svg`);
+  if (art) back.querySelector(".seal").append(art.cloneNode(true));
+  flip.append(front, back);
+  card.append(flip);
+  card.classList.add("has-flip");
+});
+// animate flips only after the first render, so cards already unlocked on a return visit don't spin
+requestAnimationFrame(() => requestAnimationFrame(() => $(".polaroids")?.classList.add("flip-ready")));
 function renderEggs(just) {
   $$(".polaroid[data-egg]").forEach((card) => {
     const open = eggsFound.has(card.dataset.egg);
@@ -441,7 +566,8 @@ faqItems.forEach((d) => {
 /* ------------------------------------------------------------ smooth scroll */
 let lenis = null;
 if (!reduced) {
-  lenis = new Lenis({ lerp: 0.085, smoothWheel: true, autoRaf: true, anchors: false });
+  // driven by the page's own frame clock (below), so scroll and the 3D always move in the same frame
+  lenis = new Lenis({ lerp: 0.085, smoothWheel: true, autoRaf: false, anchors: false });
   lenis.on("scroll", () => requestUpdate());
 } else {
   addEventListener("scroll", () => requestUpdate(), { passive: true });
@@ -454,8 +580,9 @@ $$('a[href^="#"]').forEach((a) => {
     if (!el) return;
     e.preventDefault();
     setMenu(false);
-    if (lenis) lenis.scrollTo(id === "#top" ? 0 : el, { offset: 0, duration: 1.6 });
-    else el.scrollIntoView();
+    const toEnquiry = a.hasAttribute("data-partnership-trigger");
+    if (lenis) lenis.scrollTo(id === "#top" ? 0 : el, { offset: toEnquiry ? -140 : 0, duration: 1.6, onComplete: toEnquiry ? () => setEnquiry(true) : undefined });
+    else { el.scrollIntoView(); if (toEnquiry) setEnquiry(true); }
     history.replaceState(null, "", id);
   });
 });
@@ -478,9 +605,14 @@ const finePointer = matchMedia("(hover: hover) and (pointer: fine)").matches;
 if (!reduced && finePointer) {
   $$(".panel, .story-card, .story-quote, .project, .polaroid, .faq details, .tabs").forEach((el) => {
     el.setAttribute("data-tilt", "");
+    // measured once on enter (and corrected for scroll since), not on every move: a live
+    // getBoundingClientRect per pointermove forced a layout each time
+    let r = null, ry0 = 0;
+    el.addEventListener("pointerenter", () => { r = el.getBoundingClientRect(); ry0 = scrollY; });
     el.addEventListener("pointermove", (e) => {
-      const r = el.getBoundingClientRect();
-      const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+      if (!r) { r = el.getBoundingClientRect(); ry0 = scrollY; }
+      const top = r.top - (scrollY - ry0);
+      const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - top) / r.height - 0.5;
       const k = Math.min(1, Math.max(0.3, 460 / r.width));
       el.style.setProperty("--rx", (-py * 12 * k).toFixed(2) + "deg");
       el.style.setProperty("--ry", (px * 14 * k).toFixed(2) + "deg");
@@ -518,7 +650,7 @@ if (!reduced) {
       else if (en.boundingClientRect.top > 0) en.target.classList.remove("in"); // re-arm when scrolled back up past it
     });
   }, { threshold: 0.18, rootMargin: "0px 0px -8% 0px" });
-  $$("[data-reveal]").forEach((el) => rv.observe(el));
+  $$("[data-reveal], [data-logos]").forEach((el) => rv.observe(el));   // [data-logos]: sponsor tiers, logos fade in one by one
 }
 function countUp(el) {
   const b = el.querySelector("[data-count]");
@@ -537,30 +669,14 @@ function countUp(el) {
 /* ---------------------------------------------------------------- backdrop */
 const backdrop = createBackdrop({ reduced });
 if (backdrop) $(".bg").after(backdrop.canvas);
-// film grain over the 3D stage (sits above the canvas, below the page content)
-$("#stage").after(Object.assign(document.createElement("div"), { className: "stage-grain", ariaHidden: "true" }));
 if (backdrop) document.documentElement.classList.add("has-haze");
-{
-  // plain alpha-blended noise is far cheaper to composite over the moving 3D than a soft-light blend
-  // drawn at screen resolution so each speck is one device pixel, like the old SVG noise
-  const r = Math.min(2, Math.max(1, Math.round(devicePixelRatio || 1))), n = 128 * r;
-  const g = document.createElement("canvas"); g.width = g.height = n;
-  const cx = g.getContext("2d"), img = cx.createImageData(n, n), d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const v = Math.random(), k = Math.abs(v - 0.5) * 2, c = v > 0.5 ? 255 : 0;
-    d[i] = d[i + 1] = d[i + 2] = c; d[i + 3] = Math.round(k * k * 26);
-  }
-  cx.putImageData(img, 0, 0);
-  const grainEl = $(".stage-grain");
-  grainEl.style.setProperty("--grain", `url(${g.toDataURL()})`);
-  grainEl.style.backgroundSize = "128px 128px";
-}
 
 /* ------------------------------------------------------------------ WebGL */
 const canvas = $("#stage");
 let renderer = null;
-// phones get 1.5x (sharp enough on a 3x screen, ~half the pixels); the frame loop lowers it further if needed
-let pixelRatio = Math.min(devicePixelRatio || 1, weak ? 1 : coarse ? 1.5 : 2);
+// capped at 1.5x everywhere: with antialiasing on it looks as sharp as 2x on a retina screen for
+// ~half the pixels (2x + MSAA was the main GPU cost on laptops); the frame loop lowers it further if needed
+let pixelRatio = Math.min(devicePixelRatio || 1, weak ? 1 : 1.5);
 // iOS resizes the window whenever the address bar slides; the canvas uses the large-viewport height
 // (CSS 100lvh) so those resizes can be ignored instead of rebuilding everything mid-scroll
 const lvhProbe = Object.assign(document.createElement("div"), { ariaHidden: "true" });
@@ -592,7 +708,7 @@ if (renderer) {
     city = c; subway?.addTower(c.towerModel, PASTEL);
     c.setTheme(document.documentElement.dataset.theme === "dark");
     // compile every shader and upload textures now, while idle, so nothing compiles mid-scroll
-    whenIdle(() => { warm(c.scene, c.camera); if (subway) whenIdle(() => warm(subway.scene, subway.camera)); });
+    whenIdle(() => { warm(c.scene, c.camera); warm(c.globeScene, c.globeCam); if (subway) whenIdle(() => warm(subway.scene, subway.camera)); });
     if (!reduced) document.documentElement.classList.add("stats-ring");   // the band replaces the flat list
     resize(true); requestUpdate();
   })
@@ -600,16 +716,45 @@ if (renderer) {
 }
 
 function whenIdle(fn) { (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(fn, { timeout: 2500 }); }
+// Warm a scene in idle time: upload every texture (including ones bound through shader uniforms,
+// like the Earth's land map), compile every program, then draw the whole scene once into a single
+// scissored pixel of the real canvas (wiped straight after). A program that has only been compiled
+// still makes the driver block on its first real draw (measured: 25–180 ms hitches near the top of
+// the page and when the Earth first appeared). It has to be the real canvas, not a render target:
+// three.js builds a different shader variant for render targets (linear output), which wouldn't help.
+const warmScissor = new THREE.Vector4();
 function warm(scene, camera) {
   if (!renderer) return;
-  const hidden = [];
-  scene.traverse((o) => { if (!o.visible) { hidden.push(o); o.visible = true; } });   // compile() skips hidden objects
-  const parallel = renderer.compileAsync && renderer.getContext().getExtension("KHR_parallel_shader_compile");
-  try { parallel ? renderer.compileAsync(scene, camera).catch(() => {}) : renderer.compile(scene, camera); } catch (e) {}
-  hidden.forEach((o) => { o.visible = false; });
   scene.traverse((o) => {
-    for (const m of [].concat(o.material || [])) for (const k of ["map", "alphaMap"]) if (m[k]) renderer.initTexture(m[k]);
+    for (const m of [].concat(o.material || [])) {
+      for (const k of ["map", "alphaMap"]) if (m[k]) renderer.initTexture(m[k]);
+      if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u?.value?.isTexture) renderer.initTexture(u.value);
+    }
   });
+  const drawOnce = () => {
+    const saved = [];
+    scene.traverse((o) => { saved.push([o, o.visible, o.frustumCulled]); o.visible = true; o.frustumCulled = false; });
+    const auto = renderer.autoClear, scissorOn = renderer.getScissorTest();
+    renderer.getScissor(warmScissor);
+    try {
+      renderer.setRenderTarget(null);
+      renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1);
+      renderer.autoClear = true;
+      renderer.render(scene, camera);
+      renderer.clear();                      // wipe that one pixel again
+    } catch (e) {}
+    renderer.autoClear = auto;
+    renderer.setScissor(warmScissor); renderer.setScissorTest(scissorOn);
+    saved.forEach(([o, v, f]) => { o.visible = v; o.frustumCulled = f; });
+  };
+  const saved = [];
+  scene.traverse((o) => { if (!o.visible) { saved.push(o); o.visible = true; } });   // compile() skips hidden objects
+  const parallel = renderer.compileAsync && renderer.getContext().getExtension("KHR_parallel_shader_compile");
+  try {
+    if (parallel) renderer.compileAsync(scene, camera).then(() => whenIdle(drawOnce)).catch(() => {});
+    else { renderer.compile(scene, camera); whenIdle(drawOnce); }
+  } catch (e) {}
+  saved.forEach((o) => { o.visible = false; });
 }
 
 function resize(force = false) {
@@ -621,6 +766,7 @@ function resize(force = false) {
   if (renderer) {
     renderer.setSize(w, h, false);
     for (const s of [city, subway]) if (s) { s.camera.aspect = w / h; s.camera.updateProjectionMatrix(); }
+    city?.setPixelHeight(h * pixelRatio);
   }
   measure();
   requestUpdate();
@@ -662,7 +808,8 @@ function rectOf(el) { if (!G.has(el)) cacheGeo(); const g = G.get(el), top = g.t
 function measure() {
   const vh = innerHeight;
   cacheGeo();
-  anchors = chapters.map((el) => Math.max(0, docTop(el) + (el.offsetHeight - vh) / 2));
+  // story chapters anchor at their middle; the pinned borders section anchors where its pin starts
+  anchors = chapters.map((el) => Math.max(0, el.dataset.chapter === "world" ? docTop(el) : docTop(el) + (el.offsetHeight - vh) / 2));
   const last = chapters[chapters.length - 1];
   anchors.push(docTop(last) + last.offsetHeight);                      // "exit" pose
   layoutMetro();
@@ -676,12 +823,11 @@ function chapterIndex(y) {
   return anchors.length - 1;
 }
 
-let queued = false, looping = false;
-function requestUpdate() {
-  if (queued || looping) return;   // the frame loop already renders every frame
-  queued = true;
-  requestAnimationFrame(() => { queued = false; update(); });
-}
+// One clock for the whole page: each frame Lenis advances the scroll first, then the page and
+// the 3D read that same scroll. (Two separate requestAnimationFrame loops could run in either
+// order, leaving the canvas a frame behind the text now and then: a visible judder.)
+let wantUpdate = false, looping = false;
+function requestUpdate() { wantUpdate = true; }
 
 // Pointer → city hover (lift a building) + slight camera parallax
 let pointerNdc = null, cityOnStage = false;
@@ -693,30 +839,38 @@ addEventListener("pointermove", (e) => {
   }
 }, { passive: true });
 
-// Frame loop (train wind, hover easing). Stops itself when nothing animates.
+// Frame loop (train wind, hover easing, idle spin). Runs on the clock while something animates.
 let last = 0;
 function startLoop() {
   if (looping || !renderer) return;
   looping = true; last = performance.now();
-  requestAnimationFrame(frame);
 }
-let slowSum = 0, slowN = 0;
+// Resolution governor: the display's own frame interval is the fastest frame seen; if frames
+// keep running well over it (dropped frames), the 3D steps its resolution down a notch.
+let slowSum = 0, slowN = 0, bestRaw = 1;
 function frame(now) {
   const raw = (now - last) / 1000;
   const dt = Math.min(0.05, raw); last = now;
-  if (raw < 0.25) {
-    slowSum += raw; slowN++;
+  if (raw > 0.004 && raw < 0.25) {
+    slowSum += raw; slowN++; bestRaw = Math.min(bestRaw, raw);
     if (slowN >= 90) {
-      if (slowSum / slowN > 1 / 45 && pixelRatio > 1) {
+      if (slowSum / slowN > bestRaw * 1.3 && pixelRatio > 1) {
         pixelRatio = Math.max(1, pixelRatio - 0.25);
         renderer.setPixelRatio(pixelRatio); renderer.setSize(stageW, stageH, false);
+        city?.setPixelHeight(stageH * pixelRatio);
       }
-      slowSum = 0; slowN = 0;
+      slowSum = 0; slowN = 0; bestRaw = 1;
     }
   }
-  const keep = update(dt);
-  if (keep) requestAnimationFrame(frame); else looping = false;
+  if (!update(dt)) looping = false;
 }
+function clock(now) {
+  lenis?.raf(now);
+  if (looping) { wantUpdate = false; frame(now); }
+  else if (wantUpdate) { wantUpdate = false; update(); }
+  requestAnimationFrame(clock);
+}
+requestAnimationFrame(clock);
 
 let finaleState = null, fadedAt = null;
 const crewN = $("#crew-n");
@@ -745,12 +899,10 @@ function update(dt = 0) {
 
   // Metro map: progress along the line while the section is pinned; the backdrop
   // washes to white while the map is on screen.
-  {
-    const r = rectOf(borders);
-    const p = reduced ? 1 : clamp(-r.top / Math.max(1, r.height - vh));
-    if (r.top < vh * 1.2 && r.bottom > -vh * 0.2) setMetroProgress(p * (stopEls.length - 1));   // only near the map
-    backdrop?.setWhite(clamp((vh * 1.7 - r.top) / (vh * 0.8)) * clamp((r.bottom - vh * 0.15) / (vh * 0.6)));
-  }
+  const wr = rectOf(borders);
+  const metroF = (reduced ? 1 : clamp(-wr.top / Math.max(1, wr.height - vh))) * (stopEls.length - 1);
+  if (wr.top < vh * 1.2 && wr.bottom > -vh * 0.2) setMetroProgress(metroF);   // only near the map
+  backdrop?.setWhite(clamp((vh * 1.7 - wr.top) / (vh * 0.8)) * clamp((wr.bottom - vh * 0.15) / (vh * 0.6)));
 
   // Finale copy state (also without WebGL)
   const fr = rectOf(finale);
@@ -769,7 +921,7 @@ function update(dt = 0) {
     setStageOpacity(op);
     setHalo(op * (0.75 + 0.25 * Math.sin(performance.now() / 900)));   // breathes slightly with the wind
     renderer.render(subway.scene, subway.camera);
-    if (crewN.textContent !== String(subway.revealed)) crewN.textContent = subway.revealed;
+    if (crewN && crewN.textContent !== String(subway.revealed)) crewN.textContent = subway.revealed;
     const L = subway.labels(stageW, stageH);
     L.forEach((l, i) => {
       const el = labelEls[i]; if (!el) return;
@@ -783,7 +935,9 @@ function update(dt = 0) {
 
   if (!city) return false;
   const c = reduced ? (y < anchors[1] * 0.5 ? 0 : 1) : chapterIndex(y);
-  const fade = clamp((c - 3.15) / 0.5);
+  // the Earth stays under the map while it is pinned, then fades as the section leaves
+  const fade = reduced ? clamp((c - 3.15) / 0.5) : clamp((vh - wr.bottom) / (vh * 0.55));
+  city.world.p = metroF;
   setStageOpacity(1 - fade);
   setHalo((1 - fade) * clamp(c - 0.6));
   cityOnStage = fade < 1;
@@ -798,7 +952,7 @@ function update(dt = 0) {
   city.ring.p = clamp((vh * 0.5 - sr.top) / Math.max(1, sr.height - vh * 0.3));
   city.ring.o = reduced ? 0 : clamp((vh * 0.75 - sr.top) / (vh * 0.5)) * clamp((sr.bottom - vh * 0.3) / (vh * 0.35));
   city.pose(c);
-  renderer.render(city.scene, city.camera);
+  city.render(renderer);
   if (!reduced) { startLoop(); return true; }   // idle spin + snow keep running while the globe is on screen
   return false;
 }
