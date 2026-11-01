@@ -19,6 +19,7 @@ import { createCity, PASTEL } from "./city.js";
 import { createStreetcar } from "./streetcar.js";
 import { createBackdrop } from "./backdrop.js";
 import { createFerry } from "./ferry.js";
+import { mountSkylines } from "./skyline.js";
 
 const reduced = document.documentElement.classList.contains("reduced-motion");
 const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;   // low-end hint
@@ -44,7 +45,7 @@ const stopCode = (i) => `${String(i + 1).padStart(2, "0")} · ${COUNTRIES[i][0]}
 line.innerHTML = COUNTRIES.map(([code, name], i) => {
   const terminal = i === 0 || i === COUNTRIES.length - 1;
   return `<li class="stop${terminal ? " terminal" : ""}"><span class="code">${stopCode(i)}</span><span class="dot"></span>`
-    + `<span class="tag" aria-hidden="true"><b>${code}</b><i>${String(i + 1).padStart(2, "0")}</i></span><span class="name">${name}</span></li>`;
+    + `<span class="tag" aria-hidden="true"><b>${code}</b></span><span class="name">${name}</span></li>`;
 }).join("");
 
 /* Metro map: one winding line that fits the screen. Desktop follows the sketch
@@ -188,12 +189,17 @@ function placeMetroLabel(i) {
   metroShown = i;
   const p = metroPts[i];
   metroLabel.querySelector(".name").textContent = COUNTRIES[i][1];
+  metroLabel.querySelector(".meta").textContent = `Stop ${i + 1} of ${COUNTRIES.length}`;
   const lw = metroLabel.offsetWidth, lh = metroLabel.offsetHeight, W = metro.clientWidth;
   let x, y;
   // the name box sits opposite the station's tag: above horizontal runs, across from it on vertical ones
   if (p.vertical) {
     x = p.side === "left" ? p.x + 28 : p.x - 28 - lw; y = p.y - lh / 2;
     if (x < 12 || x + lw > W - 12) { x = Math.min(W - lw - 12, Math.max(12, p.x - lw / 2)); y = p.y - lh - 30; }
+  } else if (W <= 760) {
+    // phones: the rows sit close together, so the name box goes in the gap just under the
+    // station's code, where it never covers another row's codes
+    x = Math.min(W - lw - 12, Math.max(12, p.x - lw / 2)); y = p.y + 34;
   } else {
     x = Math.min(W - lw - 12, Math.max(12, p.x - lw / 2)); y = p.y - lh - 26;
     if (y < metroHeadBottom + 6) y = p.y + 70;           // no room above (under the heading): below, past the tags
@@ -523,13 +529,38 @@ addEventListener("resize", () => movePill(tabs.find((t) => t.getAttribute("aria-
 document.fonts?.ready.then(() => movePill(tabs.find((t) => t.getAttribute("aria-selected") === "true")));
 
 // "Opens soon" buttons swap their label briefly instead of going nowhere.
+// The button keeps its width while the label is swapped (so nothing around it jumps) and the
+// text cross-fades instead of snapping.
 $$("[data-soon]").forEach((btn) => {
   const label = btn.innerHTML;
+  const swap = (html) => {
+    if (reduced || !btn.animate) { btn.innerHTML = html; return; }
+    btn.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-out" }).onfinish = () => {
+      btn.innerHTML = html;
+      btn.animate([{ opacity: 0, transform: "translateY(3px)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+    };
+  };
   btn.addEventListener("click", (e) => {
     e.preventDefault();
-    btn.textContent = btn.dataset.soon;
+    if (!btn._t) {
+      // measure the "opens …" label on a hidden copy, then ease the width once (if it needs more room)
+      const w0 = btn.offsetWidth, probe = btn.cloneNode(false);
+      probe.textContent = btn.dataset.soon;
+      Object.assign(probe.style, { position: "absolute", visibility: "hidden", width: "auto", whiteSpace: "nowrap" });
+      btn.parentNode.appendChild(probe);
+      const w1 = Math.max(w0, probe.offsetWidth); probe.remove();
+      btn._w0 = w0;
+      btn.style.whiteSpace = "nowrap"; btn.style.width = w0 + "px";
+      btn.style.transition = (getComputedStyle(btn).transition || "") + ", width 0.3s cubic-bezier(0.22, 1, 0.36, 1)";
+      requestAnimationFrame(() => { btn.style.width = w1 + "px"; });
+      swap(btn.dataset.soon);
+    }
     clearTimeout(btn._t);
-    btn._t = setTimeout(() => { btn.innerHTML = label; }, 2200);
+    btn._t = setTimeout(() => {
+      btn._t = 0; swap(label);
+      btn.style.width = btn._w0 + "px";
+      setTimeout(() => { btn.style.width = btn.style.whiteSpace = btn.style.transition = ""; }, 380);
+    }, 2200);
   });
 });
 
@@ -601,7 +632,9 @@ $$("[data-nav]").forEach((s) => io.observe(s));
 
 // Tilt on every card: follows the cursor, lifts toward it. Wide elements (FAQ rows,
 // the tab bar) tilt less so their far edges don't swing too far.
-const finePointer = matchMedia("(hover: hover) and (pointer: fine)").matches;
+// any mouse or trackpad counts (touchscreen laptops report a coarse *primary* pointer, which
+// switched the tilt off there); the handlers ignore touch and pen
+const finePointer = matchMedia("(any-hover: hover) and (any-pointer: fine)").matches;
 if (!reduced && finePointer) {
   $$(".panel, .story-card, .story-quote, .project, .polaroid, .faq details, .tabs").forEach((el) => {
     el.setAttribute("data-tilt", "");
@@ -610,6 +643,7 @@ if (!reduced && finePointer) {
     let r = null, ry0 = 0;
     el.addEventListener("pointerenter", () => { r = el.getBoundingClientRect(); ry0 = scrollY; });
     el.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse") return;
       if (!r) { r = el.getBoundingClientRect(); ry0 = scrollY; }
       const top = r.top - (scrollY - ry0);
       const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - top) / r.height - 0.5;
@@ -640,6 +674,9 @@ function setHalo(s) {          // s: how much 3D sits behind the text (0..1)
   haloTint = t;
   for (const h of halos) h.style.setProperty("--halo-tint", t);
 }
+
+/* ----------------------------------------------------------------- skylines */
+mountSkylines({ reduced });
 
 /* ----------------------------------------------------------------- reveals */
 if (!reduced) {
@@ -872,7 +909,7 @@ function clock(now) {
 }
 requestAnimationFrame(clock);
 
-let finaleState = null, fadedAt = null;
+let finaleState = null, fadedAt = null, footerShown = null;
 const crewN = $("#crew-n");
 let stageOp = -1;
 function setStageOpacity(o) { o = Math.round(o * 100) / 100; if (o !== stageOp) { stageOp = o; canvas.style.opacity = String(o); } }
@@ -909,6 +946,9 @@ function update(dt = 0) {
   const q = reduced ? 1 : clamp(-fr.top / (fr.height - vh));
   const cta = q > 0.8;
   if (cta !== finaleState) { finale.classList.toggle("is-cta", cta); finaleState = cta; }
+  // the footer slides up over the bottom of the last screen once the CTA is up and the finale fills the view
+  const atEnd = cta && fr.top < vh * 0.25 && fr.bottom > vh * 0.75;
+  if (atEnd !== footerShown) { document.documentElement.classList.toggle("at-end", atEnd); footerShown = atEnd; }
 
   if (!renderer) return false;
 

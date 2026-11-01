@@ -111,13 +111,25 @@ export function createGlobe({ night }) {
   function setScroll(c) { scrollC = c; }
   function setTilt(a) { tilt.rotation.x = -a; }
   function setReveal(k) { U.uReveal.value = clamp(k); }
+  const spinTarget = () => (clamp(scrollC - 3.05, 0, 1) * 2.4 + prog * 0.24) * SPIN;   // turning through the transition, then along the map
+  // while the Earth is hidden its turn snaps to the scroll position, so scrolling back up and down
+  // again replays the same diagonal sweep instead of starting from wherever it was left
+  // Each time the Earth forms it also whirls in: it starts a turn behind and spins diagonally
+  // into place over WHIRL_S seconds (eased out), on top of the scroll-driven turn.
+  const WHIRL = 2.6, WHIRL_S = 1.8;
+  let armed = true, whirlT = WHIRL_S;
+  function resetSpin(c, p = 0) { scrollC = c; prog = Math.max(0, p); ang = spinTarget(); armed = true; }
   function tick(dt) {
     t += dt;
-    const target = (clamp(scrollC - 3.28, 0, 1) * 2.4 + prog * 0.24) * SPIN;   // turning through the transition, then along the map
+    const target = spinTarget();
     ang += (target - ang) * (1 - Math.exp(-dt * 4));
-    yaw.rotation.y = -(ang * 0.8 + t * 0.07 * SPIN);     // left to right
-    roll.rotation.x = -(ang * 0.55 + t * 0.045 * SPIN);  // front to back: the near side travels up and over the horizon
+    if (armed) { armed = false; whirlT = dt > 0 ? 0 : WHIRL_S; }   // reduced motion (no frame time): no whirl
+    whirlT = Math.min(WHIRL_S, whirlT + dt);
+    const k = whirlT / WHIRL_S, whirl = WHIRL * (1 - k) * (1 - k) * (1 - k);   // ease-out cubic toward 0
+    const a = ang - whirl;
+    yaw.rotation.y = -(a * 0.8 + t * 0.07 * SPIN);       // left to right
+    roll.rotation.x = -(a * 0.55 + t * 0.045 * SPIN);    // front to back: the near side travels up and over the horizon
   }
   function setTheme() {}   // colours follow the shared night uniform
-  return { group: root, setProgress, setScroll, setTilt, setReveal, tick, setTheme };
+  return { group: root, setProgress, setScroll, setTilt, setReveal, resetSpin, tick, setTheme };
 }

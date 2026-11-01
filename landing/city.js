@@ -343,7 +343,7 @@ export async function createCity(model, { stats = [] } = {}) {
   }
   const lake = new THREE.Mesh(
     new THREE.ShapeGeometry(new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x, -p.y)))),
-    waterMaterial()
+    waterMaterial("xy", 1.6)
   );
   lake.rotation.x = -Math.PI / 2;
   lake.position.y = 0.012;
@@ -402,7 +402,7 @@ export async function createCity(model, { stats = [] } = {}) {
   const square = new THREE.Group();
   const plaza = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.04, 1.3), flatMaterial({ color: "#F6F1FF", topMix: 0.3 }));
   plaza.position.y = 0.02;
-  const pool = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.03, 0.45), waterMaterial());
+  const pool = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.03, 0.45), waterMaterial("xz", 4.0));
   pool.position.set(0, 0.045, 0.32);
   const letters = new TextGeometry("TORONTO", { font: new FontLoader().parse(signFont), size: 0.46, depth: 0.12, curveSegments: 6, bevelEnabled: true, bevelThickness: 0.016, bevelSize: 0.01, bevelSegments: 2 });
   letters.computeBoundingBox();
@@ -582,7 +582,7 @@ export async function createCity(model, { stats = [] } = {}) {
     ],
     // phones: text sits on a white block at the top, so the globe drops into the lower part
     tall: [
-      { cam: [0, 4.6, 14.5],  look: [0, 6.6, 0],  sx: 0.78, tilt: 0.07,  rot: 0.0 },
+      { cam: [0, 4.6, 14.5],  look: [0, 6.6, 0],  sx: 1.06, tilt: 0.07,  rot: 0.0 },
       { cam: [0, 18, 60],     look: [0, 13, 0],   sx: 0.0,  tilt: 0.0,   rot: 0.8 },
       { cam: [0, 14, 70],     look: [0, 9, 0],    sx: 0.0,  tilt: 0.0,   rot: 2.5 },
       { cam: [0, 4, 46],      look: [0, 14, 0],   sx: 0.0,  tilt: 0.0,   rot: Math.PI * 2 },
@@ -622,22 +622,25 @@ export async function createCity(model, { stats = [] } = {}) {
     city.rotation.y = lerp(A.rot, B.rot, t) + idleRot;
 
     // snow globe → Earth → horizon, as one object:
-    //   3.28–3.62  the glass frosts over into the planet from the top down (the Earth sits exactly on the glass);
+    //   3.05–3.60  the glass frosts over into the planet from the top down (the Earth sits exactly on the glass);
     //              as the frost line reaches the pedestal, the pedestal crumbles away into specks
-    //   3.60–3.66  behind the finished Earth, the city shrinks away
-    //   3.64–4.00  the same sphere glides down and swells into a horizon just below the middle
-    const reveal = smooth(Math.min(1, Math.max(0, (c - 3.28) / 0.34)));
-    const absorb = smooth(Math.min(1, Math.max(0, (c - 3.6) / 0.06)));
+    //   3.58–3.65  behind the finished Earth, the city shrinks away
+    //   3.62–4.00  the same sphere glides down and swells into a horizon just below the middle
+    const reveal = smooth(Math.min(1, Math.max(0, (c - 3.05) / 0.55)));
+    const absorb = smooth(Math.min(1, Math.max(0, (c - 3.58) / 0.07)));
     // the instant the Earth starts to form, the whole snow globe crumbles to dust (gone by ~1/3 of the reveal)
     dustU.value = Math.min(1.5, Math.max(0, reveal / 0.55) * 1.5);
     specks.visible = dustU.value > 0 && dustU.value < 1.45;
-    const settle = smooth(Math.min(1, Math.max(0, (c - 3.64) / 0.36)));
+    const settle = smooth(Math.min(1, Math.max(0, (c - 3.62) / 0.38)));
     const sGlobe = 1 - absorb;
     city.scale.setScalar(Math.max(0.0001, sGlobe));
     city.position.y = GY - 6.1 - sGlobe * GY;      // keeps the globe centre fixed while scaling
     city.visible = sGlobe > 0.002 && dustU.value < 1.45;
     if (dustU.value > 0) { city.updateWorldMatrix(true, false); dustInv.value.copy(city.matrixWorld).invert(); }
     globe.group.visible = reveal > 0.001;
+    // hidden (scrolled back up above the transition): re-arm the Earth's turn, so it spins in the
+    // same diagonal sweep every time it forms, not just the first time
+    if (!globe.group.visible) globe.resetSpin(c, worldState.p);
     if (globe.group.visible) {
       const asp = camera.aspect, tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       globeCam.left = -asp; globeCam.right = asp; globeCam.updateProjectionMatrix();
@@ -708,6 +711,7 @@ export async function createCity(model, { stats = [] } = {}) {
       idleRot += dt * 0.07;                              // slow idle turn
       ringIdle += dt * 0.09;                             // stats band drifts on its own
       snowTime += dt;
+      waterT.value += dt;
       moving = true;
     }
     for (let i = 0; i < lift.length; i++) {
@@ -759,18 +763,44 @@ export function snowflakeTexture() {
   return t;
 }
 
-function waterMaterial() {
-  const m = new THREE.MeshBasicMaterial({ color: new THREE.Color("#C9F6FF") });
+/* Lake water in the same style as the FAQ ferry's sea: the lava-lamp palette, a swell that
+   shades its troughs, drifting white wave lines and soft crests, all animated (uWaterT). The
+   swell is shaded rather than displaced, so the flat lake mesh stays as it is. `plane` picks the
+   mesh's local axes (the lake is an XY shape, the reflecting pool an XZ box); `k` scales the waves. */
+const waterT = { value: 0 };
+function waterMaterial(plane = "xy", k = 1.6) {
+  const m = new THREE.MeshBasicMaterial({ color: new THREE.Color("#FFFFFF") });
   m.onBeforeCompile = (s) => {
+    s.uniforms.uWaterT = waterT; s.uniforms.uNight = cityNight;
     s.vertexShader = s.vertexShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vW;")
-      .replace("#include <project_vertex>", "#include <project_vertex>\nvW = (modelMatrix * vec4(transformed, 1.0)).xyz;");
+      .replace("#include <common>", "#include <common>\nvarying vec2 vP;")
+      .replace("#include <project_vertex>", `#include <project_vertex>\nvP = transformed.${plane} * ${k.toFixed(2)};`);
     s.fragmentShader = s.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vW;")
+      .replace("#include <common>", `#include <common>
+        varying vec2 vP; uniform float uWaterT; uniform float uNight;
+        float wave(vec2 p, float t) {
+          return 0.16 * sin(p.x * 0.9 + t * 1.1) + 0.11 * sin(p.y * 1.3 - t * 0.9 + p.x * 0.4)
+               + 0.06 * sin((p.x + p.y) * 2.1 + t * 1.7);
+        }`)
       .replace("#include <color_fragment>", `#include <color_fragment>
-        float band = step(0.82, fract(vW.z * 1.6 + sin(vW.x * 1.3) * 0.25));
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), band * 0.55);`);
+        float t = uWaterT;
+        vec2 p = vP;
+        float h = wave(p, t), e = 0.05;
+        vec3 nrm = normalize(vec3(-(wave(p + vec2(e, 0.0), t) - h) / e, 1.0, -(wave(p + vec2(0.0, e), t) - h) / e));
+        vec3 pink = mix(vec3(0.965, 0.77, 0.925), vec3(0.36, 0.12, 0.42), uNight);
+        vec3 violet = mix(vec3(0.725, 0.59, 0.96), vec3(0.22, 0.13, 0.52), uNight);
+        vec3 lilac = mix(vec3(0.906, 0.776, 0.969), vec3(0.30, 0.15, 0.46), uNight);
+        vec3 mint = mix(vec3(0.80, 0.98, 0.95), vec3(0.05, 0.33, 0.36), uNight);
+        float band = 0.5 + 0.5 * sin(p.x * 0.55 + p.y * 0.8);
+        vec3 col = mix(mix(violet, pink, band), mix(mint, lilac, band), smoothstep(-2.0, 2.5, p.y));
+        float lit = clamp(dot(nrm, normalize(vec3(-0.5, 0.9, 0.4))), 0.0, 1.0);
+        col = mix(col * mix(0.72, 0.62, uNight), col * 1.04, lit);              // troughs a shade deeper
+        float wl = fract(p.y * 0.75 + 0.32 * sin(p.x * 0.7 + t * 0.8) - t * 0.12);
+        float line = 1.0 - smoothstep(0.02, 0.07, abs(wl - 0.5));
+        col = mix(col, vec3(1.0), line * (0.5 - 0.25 * uNight));                 // drifting wave lines
+        col = mix(col, vec3(1.0), smoothstep(0.17, 0.3, h) * (0.55 - 0.35 * uNight));   // soft crests
+        diffuseColor.rgb = col;`);
   };
-  m.customProgramCacheKey = () => "city-water";
+  m.customProgramCacheKey = () => "city-water-" + plane + k;
   return m;
 }

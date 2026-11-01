@@ -17,6 +17,7 @@
  */
 import * as THREE from "three";
 import { snowflakeTexture } from "./city.js";
+import { horizonSVGs } from "./skyline.js";
 
 const COL = {
   body: "#18D9D2", bodyShade: "#0E9F9A",          // cyan (primary)
@@ -537,7 +538,7 @@ export function createStreetcar(team) {
   const streakGeo = new THREE.BoxGeometry(0.03, 0.03, 1);
   const streakSets = [0.9, 0.7].map((op) => {
     const m = new THREE.InstancedMesh(streakGeo, new THREE.MeshBasicMaterial({ color: "#FFFFFF", transparent: true, opacity: op, depthWrite: false }), STREAKS / 2);
-    m.renderOrder = 7; scene.add(m); return m;
+    m.renderOrder = 7; m.frustumCulled = false; scene.add(m); return m;
   });
   const streaks = [];
   let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -566,18 +567,66 @@ export function createStreetcar(team) {
   const baseCompile = rowMat.onBeforeCompile;
   rowMat.onBeforeCompile = (sh) => {      // fade with distance so buildings melt into the horizon
     baseCompile(sh);
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying float vDepth;")
-      .replace("#include <project_vertex>", "#include <project_vertex>\nvDepth = -mvPosition.z;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying float vDepth;")
-      .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.a *= 1.0 - smoothstep(70.0, 175.0, vDepth);");
+    // vSpawn: the building's street position. Buildings wrap round to z = 40 behind the camera and
+    // stream away from it, so they also fade in over their first stretch instead of appearing at once.
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying float vDepth;\nvarying float vSpawn;")
+      .replace("#include <project_vertex>", "#include <project_vertex>\nvDepth = -mvPosition.z;\nvSpawn = instanceMatrix[3].z;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying float vDepth;\nvarying float vSpawn;")
+      .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.a *= (1.0 - smoothstep(70.0, 175.0, vDepth)) * (1.0 - smoothstep(14.0, 36.0, vSpawn));");
   };
-  rowMat.customProgramCacheKey = () => "sc-row-fade";
+  rowMat.customProgramCacheKey = () => "sc-row-fade-spawn";
   const cityRow = new THREE.InstancedMesh(unitBox, rowMat, sides.length);
+  // the instances move every frame, so the mesh's cached bounds go stale and three.js would cull the
+  // whole row in and out as the camera turns (the "popping" buildings): draw it unculled
+  cityRow.frustumCulled = false;
   const TONES = ["#FFFFFF", "#E4FEFF", "#BCFEFF", "#F3DAFF", "#F6F1FF", "#D9FFF4"];
   const tcol = new THREE.Color();
   sides.forEach((b, i) => cityRow.setColorAt(i, tcol.set(TONES[Math.floor(rnd() * TONES.length)])));
   cityRow.instanceColor.needsUpdate = true;
   scene.add(cityRow);
+
+  // The far end of the street: the illustrated city (landing/skyline.js, no CN Tower: the 3D one is
+  // already in shot) stands where the road meets the sky, with a strip of clouds drifting left → right.
+  // Both are SVG drawn into canvas textures, rebuilt with the dark palette when the theme changes.
+  const HZ_Z = -342, HZ_H = 30;
+  const hzMat = (o) => new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: o, toneMapped: false });
+  const hzCity = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), hzMat(0.95));
+  const hzCloud = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), hzMat(0.8));
+  hzCity.visible = hzCloud.visible = false;          // shown once the textures have loaded
+  hzCity.renderOrder = hzCloud.renderOrder = -1;
+  scene.add(hzCloud, hzCity);
+  let hzTheme = null;
+  function svgTexture(svg, aspect, wide, repeat) {
+    const W2 = wide, H2 = Math.round(wide / aspect);
+    const cv = document.createElement("canvas"); cv.width = W2; cv.height = H2;
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    if (repeat) { tex.wrapS = THREE.RepeatWrapping; tex.repeat.x = repeat; }
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    return new Promise((done) => {
+      img.onload = () => { cv.getContext("2d").drawImage(img, 0, 0, W2, H2); URL.revokeObjectURL(url); tex.needsUpdate = true; done(tex); };
+      img.onerror = () => { URL.revokeObjectURL(url); done(null); };
+      img.src = url;
+    });
+  }
+  function buildHorizon(dark) {
+    if (hzTheme === dark || typeof document === "undefined") return;
+    hzTheme = dark;
+    const cs = getComputedStyle(document.documentElement);
+    const h = horizonSVGs((k) => cs.getPropertyValue(k).trim());
+    Promise.all([svgTexture(h.city, h.cityAspect, 2048), svgTexture(h.clouds, h.cloudAspect, 1600, 4)]).then(([city, cloud]) => {
+      if (hzTheme !== dark || !city || !cloud) return;
+      const off = hzCloud.material.map ? hzCloud.material.map.offset.x : 0;
+      for (const [m, t] of [[hzCity, city], [hzCloud, cloud]]) { m.material.map?.dispose(); m.material.map = t; m.material.needsUpdate = true; m.visible = true; }
+      cloud.offset.x = off;
+      hzCloud.material.opacity = dark ? 0.5 : 0.8;   // night clouds stay in the background
+    });
+    const cw = HZ_H * h.cityAspect;
+    hzCity.scale.set(cw, HZ_H, 1); hzCity.position.set(0, HZ_H / 2 - 0.4, HZ_Z);
+    const ch = HZ_H * 0.85;
+    hzCloud.scale.set(ch * h.cloudAspect * 4, ch, 1); hzCloud.position.set(0, HZ_H * 0.62 + ch / 2, HZ_Z - 6);
+  }
 
   // Snow falling past the car (streams backwards with the wind)
   const FLAKES = 900;
@@ -651,6 +700,14 @@ export function createStreetcar(team) {
     }
     pos.y += Math.sin(time * 9.0) * 0.01; pos.x += Math.sin(time * 5.3) * 0.008;
     camera.position.copy(pos); camera.lookAt(tgt);
+    // wide screens: in the front views (opening + closing CTA) the copy sits on the left, so the
+    // frame is shifted to put the car further right, keeping the crew photos clear of the text
+    const front = q < 0.12 ? 1 : q < 0.78 ? 1 - smooth(Math.min(1, (q - 0.12) / 0.08)) : smooth(Math.min(1, (q - 0.78) / 0.14));
+    const shift = camera.aspect >= 0.85 ? front * Math.min(0.13, 0.05 + (camera.aspect - 1) * 0.1) : 0;
+    if (shift > 0.001) {
+      const fw = 1000 * camera.aspect;
+      camera.setViewOffset(fw, 1000, -shift * fw, 0, fw, 1000);
+    } else if (camera.view && camera.view.enabled) camera.clearViewOffset();
   }
 
   function setProgress(v) {
@@ -686,6 +743,7 @@ export function createStreetcar(team) {
     flakeGeo.attributes.position.needsUpdate = true;
     streakSets.forEach((s) => { s.instanceMatrix.needsUpdate = true; });
     if (!still) { tileTex.offset.y -= dt * 34 / 2.5; dashTex.offset.y -= dt * 34 / 6.06; }
+    if (!still && hzCloud.material.map) hzCloud.material.map.offset.x -= dt * 0.006;   // clouds drift left → right
     car.position.y = Math.sin(time * 14) * 0.006;
     car.rotation.z = Math.sin(time * 3.1) * 0.002;
     avatars.forEach((a) => {
@@ -708,6 +766,7 @@ export function createStreetcar(team) {
 
   function setTheme(dark) {
     nightU.value = dark ? 1 : 0;
+    buildHorizon(dark);
     for (const [m, c, k] of nightBasics) m.color.copy(c).multiply(dark ? DAY.clone().lerp(NIGHT, k) : DAY);
   }
   return { scene, camera, setProgress, tick, labels, total, addTower, setTheme, get revealed() { return revealCount; } };

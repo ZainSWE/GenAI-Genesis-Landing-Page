@@ -3,7 +3,8 @@
  * the site palette only (white, lilac pale, lilac, mint, aqua pale) with the
  * same flat shading as the other 3D pieces. Smoke puffs rise from its funnel and
  * drift up behind the FAQ title (the canvas sits under the heading text and its
- * edges fade out). Click the boat for a toot: a burst of smoke and a quick spin.
+ * edges fade out). Press and drag the boat to turn it like a 3D model (it keeps a little
+ * momentum, then goes back to its slow idle turn); a plain click does nothing.
  *
  * Every part is either embedded in the one below it or sits clear of it, so no
  * two visible faces share a plane (no z-fighting).
@@ -230,18 +231,25 @@ export function createFerry(canvas, { reduced = false, weak = false, coarse = fa
   }
 
   /* ------------------------------------------------------------ animation */
-  let t = 0, spinBoost = 0, running = false, visible = false, last = 0, raf = 0;
-  boat.rotation.y = -0.5;
+  let t = 0, running = false, visible = false, last = 0, raf = 0;
+  // drag-to-turn: yaw spins freely, tilt leans the boat toward/away from you (limited), both with
+  // momentum after release; the tilt eases back to level once you let go
+  let yaw = -0.5, yawVel = 0, tiltX = 0, tiltVel = 0, dragging = false;
   function draw(dt, paint = true) {
     t += dt;
     waterMat.uniforms.uT.value = t;
     // ride the waves: height from the swell under the boat, pitch and roll from its slope
     const h0 = waveHeight(0, 0, t), hx = waveHeight(0.6, 0, t), hz = waveHeight(0, 0.6, t);
     boat.position.y = h0 - 0.16;                 // sits in the water, not on it
-    boat.rotation.y += dt * (0.2 + spinBoost);
-    spinBoost *= Math.pow(0.35, dt);
+    if (!dragging) {
+      yaw += dt * (0.2 + yawVel);                        // idle turn plus whatever spin the drag left
+      yawVel *= Math.pow(0.12, dt);
+      tiltX += tiltVel * dt; tiltVel *= Math.pow(0.05, dt);
+      tiltX += (0 - tiltX) * Math.min(1, dt * 3);        // settle back to level
+    }
+    boat.rotation.y = yaw;
     boat.rotation.z = Math.atan2(hx - h0, 0.6) * 0.8;
-    boat.rotation.x = -Math.atan2(hz - h0, 0.6) * 0.8;
+    boat.rotation.x = -Math.atan2(hz - h0, 0.6) * 0.8 + tiltX;
     flag.rotation.y = Math.sin(t * 3) * 0.25;
     nextPuff -= dt;
     if (nextPuff <= 0 && dt > 0) { emit(); nextPuff = 0.36 + Math.random() * 0.12; }
@@ -284,7 +292,7 @@ export function createFerry(canvas, { reduced = false, weak = false, coarse = fa
   addEventListener("resize", resize);
   new ResizeObserver(resize).observe(canvas);
 
-  // toot: click the boat for a burst of smoke and a quick spin
+  // drag the boat to turn it (mouse: press and hold; touch: sideways drag, vertical still scrolls)
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   function hitBoat(e) {
     const r = canvas.getBoundingClientRect();
@@ -292,13 +300,37 @@ export function createFerry(canvas, { reduced = false, weak = false, coarse = fa
     ray.setFromCamera(ndc, camera);
     return ray.intersectObject(boat, true).length > 0;
   }
-  canvas.addEventListener("pointermove", (e) => { canvas.style.cursor = hitBoat(e) ? "pointer" : ""; });
-  canvas.addEventListener("click", (e) => {
-    if (!hitBoat(e)) return;
-    spinBoost = 2.2;
-    for (let i = 0; i < 7; i++) setTimeout(() => emit(1.6), i * 70);
-    if (reduced) setTimeout(() => draw(0.4), 520);
+  canvas.style.touchAction = "pan-y";
+  let lastX = 0, lastY = 0, lastT = 0;
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || !hitBoat(e)) return;
+    dragging = true; yawVel = 0; tiltVel = 0;
+    lastX = e.clientX; lastY = e.clientY; lastT = performance.now();
+    canvas.setPointerCapture(e.pointerId);
+    canvas.style.cursor = "grabbing";
+    e.preventDefault();
   });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!dragging) { canvas.style.cursor = hitBoat(e) ? "grab" : ""; return; }
+    const now = performance.now(), dts = Math.max(0.008, (now - lastT) / 1000);
+    const dx = (e.clientX - lastX) * 0.012, dy = (e.clientY - lastY) * 0.008;
+    yaw += dx;
+    tiltX = Math.max(-0.45, Math.min(0.45, tiltX + dy));
+    yawVel = yawVel * 0.4 + (dx / dts) * 0.6;          // smoothed release speed
+    tiltVel = tiltVel * 0.4 + (dy / dts) * 0.6;
+    lastX = e.clientX; lastY = e.clientY; lastT = now;
+    if (!running || reduced) draw(0);
+  });
+  const endDrag = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    if (performance.now() - lastT > 90) { yawVel = 0; tiltVel = 0; }   // held still before letting go: no fling
+    yawVel = Math.max(-12, Math.min(12, yawVel)); tiltVel = Math.max(-4, Math.min(4, tiltVel));
+    canvas.style.cursor = hitBoat(e) ? "grab" : "";
+    try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
 
   resize();
   for (let i = 0; i < 40; i++) draw(0.16, false);   // start with a plume already rising
