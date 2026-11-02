@@ -219,10 +219,11 @@ export const CLOUDS = { w: 1600, h: 200, items: [
 let uid = 0;
 /* clouds drift left → right forever: two copies one width apart, moved by CSS (.sk-drift),
    faded in and out at the edges by a mask so none of them is ever cut off hard */
-function cloudLayer(p, P, R) {
+function cloudLayer(p, P, R, still) {
   const clouds = P.items.filter(([t]) => t === "cloud");
   if (!clouds.length) return "";
   const one = (dx) => clouds.map(([, o]) => B.cloud(p, P.h, R, { ...o, x: o.x + dx })).join("");
+  if (still) return `<g opacity=".75">${one(0)}</g>`;   // static exports: one copy, no mask
   return `<mask id="${p}-edge" maskUnits="userSpaceOnUse" x="0" y="0" width="${P.w}" height="${P.h}">` +
     `<linearGradient id="${p}-edge-g" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#000"/><stop offset=".1" stop-color="#fff"/><stop offset=".9" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>` +
     `<rect width="${P.w}" height="${P.h}" fill="url(#${p}-edge-g)"/></mask>` +
@@ -230,7 +231,7 @@ function cloudLayer(p, P, R) {
 }
 
 /** Render one preset to an SVG string. */
-export function skylineSVG(name, { idPrefix } = {}) {
+export function skylineSVG(name, { idPrefix, still = false } = {}) {
   const P = PRESETS[name];
   if (!P) return "";
   const p = idPrefix || `sk${++uid}`;
@@ -238,7 +239,7 @@ export function skylineSVG(name, { idPrefix } = {}) {
   const draw = (layer) => P.items.filter(([t, o]) => t !== "cloud" && (o.layer || "front") === layer)
     .map(([t, o], i) => `<g class="sk-b" style="--i:${i}">${B[t](p, P.h, R, o)}</g>`).join("");
   return `<svg viewBox="0 0 ${P.w} ${P.h}" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">${defs(p)}` +
-    cloudLayer(p, P, R) + `<g class="sk-back">${draw("back")}</g><g class="sk-front">${draw("front")}</g></svg>`;
+    cloudLayer(p, P, R, still) + `<g class="sk-back">${draw("back")}</g><g class="sk-front">${draw("front")}</g></svg>`;
 }
 
 /** Bake the CSS colours into a standalone SVG (for canvas textures and file exports).

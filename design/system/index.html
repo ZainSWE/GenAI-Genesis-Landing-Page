@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GenAI Genesis — Component gallery</title>
+<script>(function (d) { try { if (localStorage.getItem("gag-theme") === "dark") d.setAttribute("data-theme", "dark"); } catch (e) {} })(document.documentElement);</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400..800&display=swap">
+<link rel="stylesheet" href="ds.css">
+<style>
+  /* gallery chrome only — not part of the system */
+  .gal { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; align-items: start; padding-block: 48px 120px; }
+  .gal-block { padding-block: 48px; border-top: 1px solid var(--rule); scroll-margin-top: 96px; }
+  .gal-block > .h3 { margin-bottom: 6px; }
+  .gal-block > .lede { margin-bottom: 24px; max-width: 70ch; }
+  .demo { display: grid; gap: 20px; padding: clamp(20px, 3vw, 32px); border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--glass-line); }
+  .demo + .demo { margin-top: 16px; }
+  .spec { margin-top: 12px; font-size: var(--t-small); color: var(--ink-muted); }
+  .spec code { color: var(--ink-soft); }
+  .rules { margin-top: 14px; display: grid; gap: 6px; font-size: 0.95rem; color: var(--ink-soft); }
+  .rules li::before { content: "→ "; color: var(--mint-ink); font-weight: 700; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .sw { border-radius: var(--r-row); overflow: hidden; border: 1px solid var(--rule); background: var(--surface-solid); }
+  .sw i { display: block; height: 64px; }
+  .sw div { padding: 10px 12px; font-size: var(--t-caption); }
+  .sw b { display: block; font-size: 0.85rem; }
+  .type-row { display: grid; grid-template-columns: 170px 1fr; gap: 20px; align-items: baseline; padding-block: 10px; border-bottom: 1px solid var(--rule); }
+  .type-row:last-child { border-bottom: 0; }
+  .space-row { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+  .space-row div { display: grid; justify-items: center; gap: 6px; font-size: var(--t-caption); color: var(--ink-muted); }
+  .space-row i { display: block; background: var(--mint); border-radius: 2px; }
+  .elev { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 24px; }
+  .elev div { height: 96px; border-radius: var(--r-row); background: var(--surface-solid); display: grid; place-items: center; font-size: var(--t-small); font-weight: 600; }
+  @media (max-width: 1000px) { .gal { grid-template-columns: minmax(0, 1fr); } .gal .subnav { display: none; } }
+  @media (max-width: 760px) { .type-row { grid-template-columns: 1fr; gap: 4px; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="bg" aria-hidden="true"></div>
+<div class="banner"><span><b>Design system v1.3</b> · every part on this page is built from ds.css + ds.js</span><a href="../DESIGN-SYSTEM.md">Read the rules</a></div>
+
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Primary">
+    <strong>Component gallery</strong>
+    <ul class="nav-links">
+      <li><a href="#foundations">Foundations</a></li>
+      <li><a href="#actions">Actions</a></li>
+      <li><a href="#forms">Forms</a></li>
+      <li><a href="#feedback">Feedback</a></li>
+      <li><a href="#data">Data</a></li>
+    </ul>
+    <button class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode"><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6z" fill="currentColor"/></svg><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.4" fill="currentColor"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  </nav>
+</header>
+
+<main id="main" class="wrap gal">
+  <nav class="subnav" aria-label="Components">
+    <a href="#foundations">Colour</a><a href="#type">Type</a><a href="#space">Space, radius, elevation</a>
+    <a href="#actions">Buttons</a><a href="#links">Links</a>
+    <a href="#forms">Text fields</a><a href="#choices">Choices</a><a href="#upload">Upload &amp; range</a>
+    <a href="#chips">Chips, badges, tags</a><a href="#feedback">Alerts &amp; banners</a><a href="#toasts">Toasts &amp; progress</a><a href="#loading">Loading &amp; empty</a>
+    <a href="#overlays">Dialogs &amp; menus</a><a href="#navigation">Navigation</a>
+    <a href="#cards">Cards</a><a href="#people">People</a><a href="#data">Tables &amp; facts</a><a href="#time">Schedule &amp; timeline</a><a href="#content">Long-form</a><a href="#illustration">Illustration</a>
+  </nav>
+
+  <div>
+    <header data-reveal="up">
+      <p class="eyebrow">GenAI Genesis · Design system</p>
+      <h1 class="h1">Every part you can <span class="accent">build with.</span></h1>
+      <p class="lede" style="margin-top:14px">The landing page's parts plus the pieces new pages will need: forms, feedback, overlays, schedules, people and long-form text. Same tokens, same type, same motion. Toggle the theme to check dark mode.</p>
+    </header>
+
+    <!-- =============================== FOUNDATIONS -->
+    <section class="gal-block" id="foundations">
+      <h2 class="h3">Colour</h2>
+      <p class="lede">Semantic tokens only. Status colours come from the site's own candid-card swatches: mint, lilac, peach and pink. No traffic-light greens, ambers or reds.</p>
+      <div class="swatches">
+        <div class="sw"><i style="background:var(--ink)"></i><div><b>--ink</b>Text, ink buttons</div></div>
+        <div class="sw"><i style="background:var(--ink-soft)"></i><div><b>--ink-soft</b>Secondary text</div></div>
+        <div class="sw"><i style="background:var(--ink-muted)"></i><div><b>--ink-muted</b>Captions, placeholders</div></div>
+        <div class="sw"><i style="background:var(--haze)"></i><div><b>--haze</b>Page</div></div>
+        <div class="sw"><i style="background:var(--mint)"></i><div><b>--mint</b>Fill only</div></div>
+        <div class="sw"><i style="background:var(--mint-deep)"></i><div><b>--mint-deep</b>Large accent words</div></div>
+        <div class="sw"><i style="background:var(--mint-ink)"></i><div><b>--mint-ink</b>Small mint text on light</div></div>
+        <div class="sw"><i style="background:var(--lilac)"></i><div><b>--lilac</b>Accent, quote marks</div></div>
+        <div class="sw"><i style="background:var(--lilac-pale)"></i><div><b>--lilac-pale</b>Tints, tracks</div></div>
+        <div class="sw"><i style="background:var(--teal)"></i><div><b>--teal</b>Award text, active stop</div></div>
+        <div class="sw"><i style="background:var(--success-tint)"></i><div><b>--success · mint</b>Open, confirmed</div></div>
+        <div class="sw"><i style="background:var(--info-tint)"></i><div><b>--info · lilac</b>Notices, tips</div></div>
+        <div class="sw"><i style="background:var(--warning-tint)"></i><div><b>--warning · peach</b>Closing soon</div></div>
+        <div class="sw"><i style="background:var(--danger-tint)"></i><div><b>--danger · pink</b>Errors, destructive</div></div>
+        <div class="sw"><i style="background:linear-gradient(90deg,var(--g1),var(--g2),var(--g3),var(--g4))"></i><div><b>--g1…g4</b>Award labels only</div></div>
+      </div>
+    </section>
+
+    <section class="gal-block" id="type">
+      <h2 class="h3">Type</h2>
+      <p class="lede">One family, Google Sans Flex. Two new levels (<code>.h1</code> for sub-page titles, <code>.h4</code>) and three utilities (<code>.caption</code>, <code>.overline</code>, <code>.num</code>). Code is the only place a second (system mono) font appears.</p>
+      <div class="demo">
+        <div class="type-row"><span class="caption">.display · hero only</span><span class="display" style="font-size:clamp(2.4rem,5vw,4rem)">Build what <span class="accent">next.</span></span></div>
+        <div class="type-row"><span class="caption">.h1 · sub-page title</span><span class="h1" style="font-size:clamp(2rem,4vw,3rem)">Judging guide</span></div>
+        <div class="type-row"><span class="caption">.h2 · section</span><span class="h2" style="font-size:2.2rem">Questions, answered.</span></div>
+        <div class="type-row"><span class="caption">.h3 · card</span><span class="h3">Agentropolis</span></div>
+        <div class="type-row"><span class="caption">.h4 · group</span><span class="h4">Partnership enquiry</span></div>
+        <div class="type-row"><span class="caption">.eyebrow</span><span class="eyebrow" style="margin:0">Toronto · March 2027</span></div>
+        <div class="type-row"><span class="caption">.lede</span><span class="lede">Bringing together 1,000+ students, researchers and builders.</span></div>
+        <div class="type-row"><span class="caption">body</span><span>You'll have 36 hours to build a working AI prototype.</span></div>
+        <div class="type-row"><span class="caption">.small</span><span class="small">Hacker applications open the second week of January.</span></div>
+        <div class="type-row"><span class="caption">.caption</span><span class="caption">Updated 2 November 2026</span></div>
+        <div class="type-row"><span class="caption">.overline</span><span class="overline">Track · Health</span></div>
+        <div class="type-row"><span class="caption">.grad (award)</span><span class="award"><span class="grad">Winner · 2026</span></span></div>
+        <div class="type-row"><span class="caption">code / kbd</span><span>Run <code>npm run dev</code>, then press <kbd>⌘</kbd> <kbd>K</kbd></span></div>
+      </div>
+    </section>
+
+    <section class="gal-block" id="space">
+      <h2 class="h3">Space, radius, elevation</h2>
+      <p class="lede">4px steps. Six radii from <code>--r-xs</code> (6) to <code>--r-pill</code>. Four elevation levels: chips, cards, section cards, overlays.</p>
+      <div class="demo">
+        <div class="space-row">
+          <div><i style="width:4px;height:4px"></i>4</div><div><i style="width:8px;height:8px"></i>8</div><div><i style="width:12px;height:12px"></i>12</div><div><i style="width:16px;height:16px"></i>16</div><div><i style="width:20px;height:20px"></i>20</div><div><i style="width:24px;height:24px"></i>24</div><div><i style="width:32px;height:32px"></i>32</div><div><i style="width:48px;height:48px"></i>48</div><div><i style="width:80px;height:80px"></i>80</div>
+        </div>
+        <div class="elev">
+          <div style="box-shadow:var(--shadow-1);border-radius:var(--r-sm)">--shadow-1 · r-sm</div>
+          <div style="box-shadow:var(--shadow);border-radius:var(--r-row)">--shadow · r-row</div>
+          <div style="box-shadow:var(--shadow-2);border-radius:var(--r-card)">--shadow-2 · r-card</div>
+          <div style="box-shadow:var(--shadow-3);border-radius:var(--r-section)">--shadow-3 · r-section</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =============================== ACTIONS -->
+    <section class="gal-block" id="actions">
+      <h2 class="h3">Buttons</h2>
+      <p class="lede">Pills, 48px tall. One Primary per screen. New: Ghost, Danger, icon, small (toolbars, tables and cards only), loading and disabled states.</p>
+      <div class="demo">
+        <div class="cluster">
+          <button class="btn btn-mint">Apply as a hacker</button>
+          <button class="btn btn-ink">Become a judge</button>
+          <button class="btn btn-glass">Back</button>
+          <button class="btn btn-ghost">Cancel</button>
+          <button class="btn btn-danger">Withdraw application</button>
+        </div>
+        <div class="cluster">
+          <button class="btn btn-ink"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 10l6 6 6-6M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Download schedule</button>
+          <button class="btn btn-mint" aria-busy="true">Submitting…</button>
+          <button class="btn btn-ink" disabled>Applications closed</button>
+          <button class="btn btn-glass btn-sm">Edit</button>
+          <button class="btn btn-glass btn-icon tip" data-tip="Share" aria-label="Share"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6" stroke="currentColor" stroke-width="2"/></svg></button>
+          <button class="btn btn-mint btn-icon" aria-label="Add"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+        </div>
+        <div class="btn-pair" style="max-width:420px"><button class="btn btn-glass">Back</button><button class="btn btn-mint">Next</button></div>
+      </div>
+      <p class="spec"><code>.btn</code> + <code>.btn-mint | -ink | -glass | -ghost | -danger</code> · sizes <code>.btn-sm</code> <code>.btn-icon</code> <code>.btn-block</code> · states <code>disabled</code> <code>aria-busy="true"</code> · groups <code>.btn-row</code> <code>.btn-pair</code></p>
+      <ul class="rules"><li>Danger only for irreversible actions, always behind a confirm dialog.</li><li>Ghost for the dismissive action next to a Primary (Cancel, Skip).</li><li>Icon-only buttons need <code>aria-label</code>; add <code>.tip</code> + <code>data-tip</code> for a hover label.</li></ul>
+    </section>
+
+    <section class="gal-block" id="links">
+      <h2 class="h3">Links</h2>
+      <div class="demo">
+        <p>Inline links in body copy look like <a class="link" href="#links">this code of conduct</a>; a standalone action link is a <a class="text-link" href="#links">text link →</a> and going up a level uses a <a class="back-link" href="#links">← Back to resources</a>.</p>
+      </div>
+      <p class="spec"><code>.link</code> (inline, ink + mint underline) · <code>.text-link</code> (standalone, bold) · <code>.back-link</code></p>
+    </section>
+
+    <!-- =============================== FORMS -->
+    <section class="gal-block" id="forms">
+      <h2 class="h3">Text fields</h2>
+      <p class="lede">Label above, 48px glass field, helper or error below. Errors say what to do. Counters for limited text.</p>
+      <div class="demo grid" style="--cols:2">
+        <div class="field"><label class="label" for="f1">Full name <span class="req" aria-hidden="true">*</span></label><input class="input" id="f1" placeholder="Ada Lovelace" required></div>
+        <div class="field"><label class="label" for="f2">School <span class="opt">(optional)</span></label><input class="input" id="f2" placeholder="University of Toronto" aria-describedby="f2-h"><p class="help" id="f2-h">Leave blank if you've graduated.</p></div>
+        <div class="field"><label class="label" for="f3">Email <span class="req" aria-hidden="true">*</span></label><input class="input" id="f3" value="ada@" aria-invalid="true" aria-describedby="f3-e"><p class="error-text" id="f3-e"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7v6M12 16.5v.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>Enter an email like name@school.edu</p></div>
+        <div class="field"><label class="label" for="f4">Shirt size</label><select class="select" id="f4"><option>Choose a size</option><option>S</option><option>M</option><option>L</option><option>XL</option></select></div>
+        <div class="field"><label class="label" for="f5">Search projects</label><div class="input-group"><span class="affix"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><input class="input search" id="f5" type="search" placeholder="Agents, health, AR…"></div></div>
+        <div class="field"><label class="label" for="f6">Team name</label><input class="input" id="f6" value="Shipyard" disabled></div>
+        <div class="field" style="grid-column:1/-1"><label class="label" for="f7">What will you build?</label><textarea class="textarea" id="f7" data-max="280" aria-describedby="f7-c" placeholder="One or two sentences"></textarea><span class="counter" id="f7-c"></span></div>
+      </div>
+      <p class="spec"><code>.field</code> › <code>.label</code> (+ <code>.req</code> / <code>.opt</code>) › <code>.input | .select | .textarea</code> › <code>.help | .error-text | .counter</code> · <code>.input-group</code> + <code>.affix</code></p>
+    </section>
+
+    <section class="gal-block" id="choices">
+      <h2 class="h3">Choices</h2>
+      <p class="lede">Checkboxes for many-of, radios for one-of, option cards when each choice needs a description, segmented for 2–3 short options, switches for settings that apply instantly.</p>
+      <div class="demo grid" style="--cols:2">
+        <fieldset class="fieldset"><legend>Dietary needs</legend>
+          <label class="check"><input type="checkbox" checked><span>Vegetarian</span></label>
+          <label class="check"><input type="checkbox"><span>Halal</span></label>
+          <label class="check"><input type="checkbox"><span>Gluten-free <span class="hint">We'll label these meals separately.</span></span></label>
+          <label class="check"><input type="checkbox" disabled><span>Kosher (not available this year)</span></label>
+        </fieldset>
+        <fieldset class="fieldset"><legend>Experience</legend>
+          <label class="check"><input type="radio" name="xp" checked><span>First hackathon</span></label>
+          <label class="check"><input type="radio" name="xp"><span>1–3 hackathons</span></label>
+          <label class="check"><input type="radio" name="xp"><span>4 or more</span></label>
+        </fieldset>
+        <fieldset class="fieldset" style="grid-column:1/-1"><legend>Track</legend>
+          <div class="grid" style="--cols:3;--gap:12px">
+            <label class="option-card"><span class="check"><input type="radio" name="track" checked></span><span><strong>Health</strong><span class="small muted">Care, diagnostics, wellbeing</span></span></label>
+            <label class="option-card"><span class="check"><input type="radio" name="track"></span><span><strong>Finance</strong><span class="small muted">Fraud, access, markets</span></span></label>
+            <label class="option-card"><span class="check"><input type="radio" name="track"></span><span><strong>Open</strong><span class="small muted">Anything that ships</span></span></label>
+          </div>
+        </fieldset>
+        <div class="field"><span class="label">Format</span><div class="segmented" role="group" aria-label="Format"><button type="button" aria-pressed="true">In person</button><button type="button" aria-pressed="false">Online</button></div></div>
+        <div class="field"><span class="label">Notifications</span><label class="switch"><input type="checkbox" role="switch" checked><span>Email me when applications open</span></label></div>
+      </div>
+      <p class="spec"><code>.check</code> (checkbox/radio) · <code>.option-card</code> · <code>.segmented</code> (buttons with <code>aria-pressed</code>, or labels with radios) · <code>.switch</code> (<code>role="switch"</code>) · group with <code>fieldset.fieldset</code> + <code>legend</code></p>
+    </section>
+
+    <section class="gal-block" id="upload">
+      <h2 class="h3">Upload &amp; range</h2>
+      <div class="demo grid" style="--cols:2">
+        <div class="field"><span class="label">Résumé <span class="opt">(PDF, max 5 MB)</span></span>
+          <label class="dropzone" data-list="files1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>Drop a file or browse</strong><span class="small muted">PDF only</span><input type="file" accept=".pdf"></label>
+          <ul class="file-list" id="files1"></ul>
+        </div>
+        <div class="field"><label class="label" for="r1">Team size you're looking for: <span data-range-out="r1"></span></label><input class="range" id="r1" type="range" min="1" max="4" value="3"><p class="help">Teams are up to four people.</p></div>
+      </div>
+      <p class="spec"><code>label.dropzone</code> wrapping a file input (+ <code>data-list</code> → <code>ul.file-list</code>) · <code>input.range</code> (+ <code>data-range-out</code>)</p>
+    </section>
+
+    <!-- =============================== CHIPS / FEEDBACK -->
+    <section class="gal-block" id="chips">
+      <h2 class="h3">Chips, badges, tags</h2>
+      <p class="lede">Chips are interactive filters (glass, ink when on — like the tabs). Badges are status, styled exactly like the award pill. Tags are soft lilac labels for metadata.</p>
+      <div class="demo">
+        <div class="cluster"><button class="chip" aria-pressed="true">All</button><button class="chip" aria-pressed="false">Health</button><button class="chip" aria-pressed="false">Finance</button><button class="chip" aria-pressed="false">Agents</button><button class="chip" aria-pressed="false">AR / VR</button></div>
+        <div class="cluster"><span class="badge badge-success">Open</span><span class="badge badge-warning">Closing soon</span><span class="badge badge-danger">Closed</span><span class="badge badge-info">Online</span><span class="badge badge-live">Live now</span><span class="badge">Draft</span><span class="award"><span class="grad">Winner · 2026</span></span><span class="count">3</span></div>
+        <div class="cluster"><span class="tag">Python</span><span class="tag">LangChain</span><span class="tag">Vision</span></div>
+      </div>
+      <p class="spec"><code>.chip[aria-pressed]</code> · <code>.badge</code> + <code>-success | -warning | -danger | -info | -live</code> · <code>.award</code> · <code>.count</code> · <code>.tag</code></p>
+    </section>
+
+    <section class="gal-block" id="feedback">
+      <h2 class="h3">Alerts, callouts &amp; banners</h2>
+      <div class="demo">
+        <div class="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 11v6M12 7.5v.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><div><strong>Applications open in January</strong><p>We'll email you the moment they do.</p></div><button class="close" aria-label="Dismiss">✕</button></div>
+        <div class="alert alert-success"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><div><strong>You're on the list</strong><p>Check your inbox to confirm your email.</p></div><span></span></div>
+        <div class="alert alert-warning"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l10 18H2z" fill="currentColor"/><path d="M12 10v5M12 17.5v.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg><div><strong>Submissions close at 9:00 AM</strong><p>Push your final commit and fill the Devpost form before then.</p></div><span></span></div>
+        <div class="alert alert-danger" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 7v6M12 16.5v.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg><div><strong>We couldn't submit your application</strong><p>Check your connection and try again. Nothing you entered was lost.</p></div><span></span></div>
+        <div class="callout"><strong>Tip for judges</strong><p class="muted">Score the demo you saw, not the one you imagined. Ask "what broke?" — it's the most revealing question.</p></div>
+      </div>
+      <p class="spec"><code>.alert</code> + <code>-success | -warning | -danger</code> (info is default) · <code>.close</code> to dismiss · <code>.callout</code> · <code>.banner</code> (see the top of this page: one site-wide message, above the nav)</p>
+      <ul class="rules"><li>Alerts sit in the flow, next to what they're about. Use <code>role="alert"</code> only for errors.</li><li>Title says what happened; one line says what to do next.</li></ul>
+    </section>
+
+    <section class="gal-block" id="toasts">
+      <h2 class="h3">Toasts &amp; progress</h2>
+      <div class="demo">
+        <div class="cluster"><button class="btn btn-ink" data-toast="Link copied">Show a toast</button><span class="small muted">The candid-egg toast: an ink pill, bottom centre, 4s. Confirmations only — never errors.</span></div>
+        <div class="stack"><span class="small">Profile 70%</span><div class="progress" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100" aria-label="Profile completion"><span style="--value:70%"></span></div></div>
+        <div class="progress indeterminate" role="progressbar" aria-label="Uploading"><span></span></div>
+        <ol class="stepper"><li data-state="done">Profile</li><li aria-current="step">Team</li><li>Project</li><li>Review</li></ol>
+      </div>
+      <p class="spec"><code>DS.toast("…")</code> or <code>[data-toast]</code> · <code>.progress</code> (<code>--value</code>) / <code>.indeterminate</code> · <code>ol.stepper</code> for flows of 3+ steps</p>
+    </section>
+
+    <section class="gal-block" id="loading">
+      <h2 class="h3">Loading &amp; empty states</h2>
+      <div class="demo grid" style="--cols:2">
+        <div class="card card-flat" aria-busy="true" aria-label="Loading project">
+          <div class="stack" style="--gap:12px"><div class="skeleton line" style="width:30%"></div><div class="skeleton title"></div><div class="skeleton line"></div><div class="skeleton line" style="width:80%"></div></div>
+        </div>
+        <div class="card card-flat empty">
+          <div class="empty-art"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4zM8 7V5h8v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+          <h3 class="h4">No projects yet</h3><p>Projects appear here once judging starts on Sunday morning.</p><a class="btn btn-glass btn-sm" href="#empty">View last year's winners</a>
+        </div>
+        <div class="cluster"><div class="spinner" role="status" aria-label="Loading"></div><span class="small muted">Spinner: short waits inside a control. Skeletons: page or card content.</span></div>
+      </div>
+    </section>
+
+    <!-- =============================== OVERLAYS -->
+    <section class="gal-block" id="overlays">
+      <h2 class="h3">Dialogs, drawers, menus &amp; tooltips</h2>
+      <p class="lede">Native <code>&lt;dialog&gt;</code> and <code>popover</code>: focus trapping, Escape and the top layer come free.</p>
+      <div class="demo"><div class="cluster">
+        <button class="btn btn-danger" data-open="dlg">Withdraw application</button>
+        <button class="btn btn-glass" data-open="drw">Open filters</button>
+        <button class="btn btn-glass" popovertarget="menu1">More ▾</button>
+        <div class="menu" id="menu1" popover><a href="#overlays"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Edit team</a><button type="button" data-toast="Link copied"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 15l6-6M10 6l1-1a4 4 0 0 1 6 6l-1 1M14 18l-1 1a4 4 0 0 1-6-6l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Copy invite link</button><hr><button type="button" class="danger">Leave team</button></div>
+        <button class="btn btn-glass btn-icon tip" data-tip="Help" aria-label="Help">?</button>
+      </div></div>
+      <dialog class="dialog" id="dlg" aria-labelledby="dlg-t">
+        <div class="dialog-body"><div class="dialog-head"><h2 class="h4" id="dlg-t">Withdraw your application?</h2><button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">✕</button></div><p class="muted">Your spot goes to the next person on the waitlist. You can apply again until applications close.</p></div>
+        <div class="dialog-foot"><button class="btn btn-ghost" data-close>Keep it</button><button class="btn btn-danger" data-close data-toast="Application withdrawn">Withdraw</button></div>
+      </dialog>
+      <dialog class="drawer" id="drw" aria-labelledby="drw-t">
+        <div class="dialog-body"><div class="dialog-head"><h2 class="h4" id="drw-t">Filter projects</h2><button class="btn btn-ghost btn-icon btn-sm" data-close aria-label="Close">✕</button></div>
+          <fieldset class="fieldset"><legend>Track</legend><label class="check"><input type="checkbox" checked><span>Health</span></label><label class="check"><input type="checkbox"><span>Finance</span></label><label class="check"><input type="checkbox"><span>Open</span></label></fieldset>
+          <button class="btn btn-mint btn-block" data-close>Show 24 projects</button></div>
+      </dialog>
+      <p class="spec"><code>dialog.dialog</code> (+ <code>.dialog-body / -head / -foot</code>) · <code>dialog.drawer</code> (side panel → bottom sheet on phones) · <code>[data-open="id"]</code> / <code>[data-close]</code> · <code>.menu[popover]</code> + <code>popovertarget</code> · <code>.tip[data-tip]</code></p>
+      <ul class="rules"><li>Dialogs are for decisions and short forms (≤ 3 fields). Anything longer is its own page.</li><li>The safe action is on the left and never Primary-styled in a destructive dialog.</li><li>Tooltips label icon buttons; they never hold information you can't get otherwise.</li></ul>
+    </section>
+
+    <!-- =============================== NAVIGATION -->
+    <section class="gal-block" id="navigation">
+      <h2 class="h3">Navigation</h2>
+      <div class="demo">
+        <nav class="breadcrumbs" aria-label="Breadcrumb"><ol><li><a href="#navigation">Home</a></li><li><a href="#navigation">Resources</a></li><li><span aria-current="page">Judging guide</span></li></ol></nav>
+        <div role="tablist" class="tabs" aria-label="Day"><button role="tab" class="tab" aria-selected="true" aria-controls="day1" id="t1">Friday</button><button role="tab" class="tab" aria-selected="false" aria-controls="day2" id="t2" tabindex="-1">Saturday</button><button role="tab" class="tab" aria-selected="false" aria-controls="day3" id="t3" tabindex="-1">Sunday</button></div>
+        <div id="day1" role="tabpanel" aria-labelledby="t1" class="small muted">Friday: check-in, opening ceremony, team formation.</div>
+        <div id="day2" role="tabpanel" aria-labelledby="t2" class="small muted" hidden>Saturday: workshops, mentor office hours, midnight ramen.</div>
+        <div id="day3" role="tabpanel" aria-labelledby="t3" class="small muted" hidden>Sunday: submissions, judging, awards.</div>
+        <nav class="pagination" aria-label="Pages"><a href="#navigation" aria-label="Previous page">←</a><a href="#navigation">1</a><span aria-current="page">2</span><a href="#navigation">3</a><span>…</span><a href="#navigation">9</a><a href="#navigation" aria-label="Next page">→</a></nav>
+      </div>
+      <p class="spec"><code>nav.breadcrumbs</code> (pages 2+ levels deep) · <code>.tabs</code> + ARIA tabs (arrow keys via ds.js) · <code>nav.pagination</code> · <code>nav.subnav</code> (the sticky list on the left of this page, scroll-spied) · <code>.back-link</code></p>
+    </section>
+
+    <!-- =============================== DATA DISPLAY -->
+    <section class="gal-block" id="cards">
+      <h2 class="h3">Cards</h2>
+      <div class="grid" style="--cols:3">
+        <article class="card"><p class="award"><span class="grad">Winner · 2026</span></p><h3 class="h3" style="margin-top:12px">Agentropolis</h3><p class="small muted" style="margin-top:6px"><b style="color:var(--mint-ink)">Google</b> Best AI for Community Impact</p></article>
+        <article class="card media-card"><div class="media"></div><div class="body"><span class="overline">Workshop</span><h3 class="h4">Shipping agents that don't hallucinate</h3><p class="small muted">Saturday · 11:00 AM · Room 1160</p></div></article>
+        <a class="card link-card" href="#cards"><span class="icon-tile mint"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h10l4 4v12H5z M14 4v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span><h3 class="h4">Hacker guide</h3><p class="small muted">Everything you need for the weekend, in one page.</p><span class="arrow">Read the guide →</span></a>
+        <article class="card prize first"><span class="overline">1st place</span><span class="amount">$5,000</span><p class="small muted">Plus mentorship from our partners and a feature on our socials.</p></article>
+        <article class="card prize"><span class="overline">2nd place</span><span class="amount">$3,000</span><p class="small muted">Plus partner credits.</p></article>
+        <article class="card prize"><span class="overline">Best beginner</span><span class="amount">$1,000</span><p class="small muted">Teams where everyone is at their first hackathon.</p></article>
+      </div>
+      <div class="section-card" style="margin-top:24px"><h3 class="h4">Section card</h3><p class="muted" style="margin-top:6px">The large frosted card for a page's main block: logo walls, forms, a featured CTA. The skyline may stand on it (see Illustration).</p></div>
+      <p class="spec"><code>.card</code> (+ <code>.card-flat</code>) · <code>.media-card</code> · <code>a.card.link-card</code> · <code>.card.prize</code> (+ <code>.first</code>) · <code>.section-card</code> (+ <code>.ink</code>) · <code>.well</code></p>
+    </section>
+
+    <section class="gal-block" id="people">
+      <h2 class="h3">People</h2>
+      <p class="lede">Judges, mentors, speakers, organisers. Real photos (square, ≥ 256px) or initials; name, role, organisation. No invented people.</p>
+      <div class="demo">
+        <div class="grid-auto" style="--min:180px">
+          <div class="person"><span class="avatar">AL</span><div><h3>Name TBD</h3><p class="role">Research Scientist</p><p class="org">Organisation</p></div></div>
+          <div class="person"><span class="avatar lilac">GH</span><div><h3>Name TBD</h3><p class="role">Staff Engineer</p><p class="org">Organisation</p></div></div>
+          <div class="person"><span class="avatar peach">RK</span><div><h3>Name TBD</h3><p class="role">Founder</p><p class="org">Organisation</p></div></div>
+        </div>
+        <div class="cluster" style="--gap:24px"><div class="person-row"><span class="avatar sm">ZA</span><div><h3>Name TBD</h3><p>VC Design</p></div></div><div class="avatar-group" aria-label="4 teammates"><span class="avatar sm">A</span><span class="avatar sm lilac">B</span><span class="avatar sm peach">C</span><span class="avatar sm">+1</span></div></div>
+      </div>
+      <p class="spec"><code>.avatar</code> (<code>.sm .lg .xl</code>, image or initials) · <code>.avatar-group</code> · <code>.person</code> (grid of people) · <code>.person-row</code> (inline)</p>
+    </section>
+
+    <section class="gal-block" id="data">
+      <h2 class="h3">Tables, facts &amp; stats</h2>
+      <div class="table-wrap">
+        <table class="table table-stack">
+          <caption>Prizes by track</caption>
+          <thead><tr><th>Track</th><th>Sponsor</th><th>Status</th><th class="num">Prize</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Track">Best AI for Community Impact</td><td data-label="Sponsor">Google</td><td data-label="Status"><span class="badge badge-success">Open</span></td><td class="num" data-label="Prize">$2,000</td></tr>
+            <tr><td data-label="Track">Best Health Care Hack</td><td data-label="Sponsor">Sun Life</td><td data-label="Status"><span class="badge badge-warning">Closing soon</span></td><td class="num" data-label="Prize">$1,500</td></tr>
+            <tr><td data-label="Track">Best Beginner Hack</td><td data-label="Sponsor">GenAI Genesis</td><td data-label="Status"><span class="badge badge-success">Open</span></td><td class="num" data-label="Prize">$1,000</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="grid" style="--cols:2;margin-top:24px">
+        <dl class="facts"><div><dt>When</dt><dd>March 2027 · 36 hours</dd></div><div><dt>Where</dt><dd>U of T or online</dd></div><div><dt>Who</dt><dd>All skill levels</dd></div><div><dt>Cost</dt><dd>Free · teams up to 4</dd></div></dl>
+        <div class="cluster" style="--gap:32px"><div class="stat"><b>1,000+</b><span>Hackers &amp; judges</span></div><div class="stat"><b>37</b><span>Countries</span></div></div>
+      </div>
+      <ul class="checklist" style="margin-top:24px"><li>Laptop and charger</li><li>Student ID or government ID</li><li>A reusable water bottle</li></ul>
+      <p class="spec"><code>.table-wrap</code> › <code>table.table</code> (+ <code>.table-stack</code>: rows become cards on phones; set <code>data-label</code>) · <code>dl.facts</code> · <code>.stat</code> · <code>ul.checklist</code> · <code>.accordion</code> (FAQ)</p>
+    </section>
+
+    <section class="gal-block" id="time">
+      <h2 class="h3">Schedule, timeline &amp; countdown</h2>
+      <div class="grid" style="--cols:2">
+        <div class="card card-flat">
+          <div class="agenda">
+            <div class="agenda-item"><time>6:00 PM</time><div><h3>Check-in opens</h3><p>Myhal Centre lobby. Bring your ID.</p></div></div>
+            <div class="agenda-item is-now"><time>7:30 PM</time><div><h3>Opening ceremony</h3><p>Keynote, rules and sponsor intros.</p><div class="meta"><span class="badge badge-live">Live now</span><span class="tag">MY150</span></div></div></div>
+            <div class="agenda-item"><time>9:00 PM</time><div><h3>Hacking starts</h3><p>36 hours on the clock.</p></div></div>
+          </div>
+        </div>
+        <div class="stack" style="--gap:28px">
+          <ol class="timeline" style="--done:50%">
+            <li data-state="done"><time>November</time><h3>Judge applications open</h3><p>Apply on the judge page.</p></li>
+            <li aria-current="step"><time>January</time><h3>Hacker applications open</h3><p>Rolling review, decisions in two weeks.</p></li>
+            <li><time>March 2027</time><h3>GenAI Genesis</h3><p>36 hours in Toronto and online.</p></li>
+          </ol>
+          <div><p class="overline" style="margin-bottom:10px">Hacking starts in</p><div class="countdown" data-countdown="2027-03-12T21:00:00-05:00"><div><b data-unit="d">00</b><span>Days</span></div><div><b data-unit="h">00</b><span>Hours</span></div><div><b data-unit="m">00</b><span>Min</span></div><div><b data-unit="s">00</b><span>Sec</span></div></div></div>
+        </div>
+      </div>
+      <p class="spec"><code>.agenda</code> › <code>.agenda-item</code> (+ <code>.is-now</code>) · <code>ol.timeline</code> (<code>data-state="done"</code>, <code>aria-current="step"</code>) · <code>.countdown[data-countdown]</code></p>
+    </section>
+
+    <section class="gal-block" id="content">
+      <h2 class="h3">Long-form &amp; accordion</h2>
+      <p class="lede">For rules, privacy, guides and posts: wrap the text in <code>.prose</code> and write plain HTML. Measure stays under 68 characters.</p>
+      <div class="grid" style="--cols:2">
+        <article class="prose">
+          <h2 style="margin-top:0">Code of conduct</h2>
+          <p>GenAI Genesis is for everyone. We expect every participant, mentor, judge and sponsor to help keep it <strong>welcoming and safe</strong>.</p>
+          <ul><li>Be kind and assume good intent.</li><li>Respect people's time, space and work.</li><li>Report anything that worries you to an organiser.</li></ul>
+          <blockquote>Build boldly, and look out for each other.</blockquote>
+          <p>Questions? Email <a href="#content">contact@genaigenesis.ca</a>.</p>
+        </article>
+        <div class="stack">
+          <div class="accordion"><details open><summary>Is the hackathon free?</summary><div>Yes, completely free.</div></details><details><summary>Can I join online?</summary><div>Yes. Choose one format when you apply.</div></details></div>
+          <figure class="card quote" style="margin:0"><blockquote>The most organised hackathon I've judged.</blockquote><figcaption class="person-row"><span class="avatar sm">J</span><div><h3>Real name only</h3><p>Role, Organisation · with permission</p></div></figcaption></figure>
+          <pre class="code-block"><code>curl https://api.genaigenesis.ca/v1/teams \
+  -H "Authorization: Bearer $TOKEN"</code></pre>
+        </div>
+      </div>
+      <p class="spec"><code>.prose</code> (rules, privacy, guides, posts) · <code>.accordion</code> · <code>figure.quote</code> (real, attributed, with permission) · <code>pre.code-block</code></p>
+    </section>
+
+    <section class="gal-block" id="illustration">
+      <h2 class="h3">Illustration</h2>
+      <p class="lede">The skyline stands on one section card per page, as wide as the card. <code>skyline.js</code> renders it; clouds drift left to right.</p>
+      <div class="skyline skyline-card" data-skyline="card" aria-hidden="true"></div>
+      <div class="section-card"><h3 class="h4">Past sponsors &amp; partners</h3><p class="muted" style="margin-top:6px">Any section card works: logo wall, form, featured CTA.</p></div>
+    </section>
+  </div>
+</main>
+
+<footer class="footer"><div class="wrap"><span>Toronto, Ontario · © 2027 GenAI Genesis</span><ul><li><a href="../DESIGN-SYSTEM.md">Rules</a></li><li><a href="ds.css">ds.css</a></li><li><a href="ds.js">ds.js</a></li></ul></div></footer>
+
+<script src="ds.js" defer></script>
+<script type="module">
+  import { mountSkylines } from "../../landing/skyline.js";
+  mountSkylines({ reduced: matchMedia("(prefers-reduced-motion: reduce)").matches });
+</script>
+</body>
+</html>
